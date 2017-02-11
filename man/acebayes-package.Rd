@@ -6,46 +6,52 @@
 Optimal Bayesian Experimental Design using the Approximate Coordinate Exchange (ACE) Algorithm
 }
 \description{
-Optimal Bayesian experimental design typically involves maximising an objective function
-which is the expectation of some appropriately chosen utility function with respect to
-the joint distribution of parameters and responses. This objective function is usually not
-available in closed form and the design space can be of high dimensionality.
+Optimal Bayesian experimental design (Chaloner & Verdinelli, 1995) involves maximising 
+an objective function given by the expectation of some appropriately chosen utility 
+function with respect to the joint distribution of parameters and responses, over a 
+design space of all possible designs. This objective function is usually not available 
+in closed form and the design space can be of high dimensionality.
 
-The \code{acebayes} package uses Approximate Coordinate Exchange (ACE; Overstall & Woods, 2015) 
-to maximise the expectation of the utility function. 
-It does so by approximating the expected utility using Monte Carlo (MC) 
-integration. These MC integration evaluations are then used to fit a Gaussian 
-process (GP) emulator which can predict the value of the expected utility for
-any design. The coordinate and point exchange algorithms are then used to 
-maximise the GP emulator prediction of the expected utility. 
+The \code{acebayes} package uses the Approximate Coordinate Exchange (ACE; Overstall 
+& Woods, 2017) to approximately maximise the expectation of the utility function. 
+In Phase I of the algorithm, a continuous version of the coordinate exchange 
+algorithm (Meyer & Nachtsheim, 1995) is used to maximise an approximation to 
+expected utility. The approximation is given by the predictive mean of a Gaussian 
+process (GP) emulator constructing using a 'small' number of Monte Carlo (MC) 
+evaluations of the expected utility function. In Phase II a point exchange 
+algorithm is used to consolidate clusters of design points into repeated design 
+points.
 }
 \details{
 \tabular{ll}{
 Package: \tab acebayes\cr
 Type: \tab Package\cr
-Version: \tab 1.1\cr
-Date: \tab 2016-08-04\cr
+Version: \tab 1.3.4\cr
+Date: \tab 2017-02-09\cr
 License: \tab GPL-2\cr
 }
-The most important functions are \code{\link{ace}} and \code{\link{aceglm}}.
+The most important functions are \code{\link{ace}}, \code{\link{aceglm}} and \code{\link{acenlm}}.
 
-The function \code{\link{ace}} implements the ACE algorithm. It has two mandatory arguments: \code{utility} (a function specifying the chosen utility function) and \code{start.d} (the initial design). The function will return the final design from the algorithm, along with some information to assess convergence.
+The function \code{\link{ace}} implements both phases of the ACE algorithm. It has two mandatory arguments: \code{utility} (a function specifying the chosen utility function incorporating the joint distribution of parameters and responses) and \code{start.d} (the initial design). The function will return the final design from the algorithm, along with information to assess convergence.
 
-The computational time of \code{\link{ace}} is highly dependent on the computational time of evaluating the user-supplied function \code{utility}. Therefore it is recommended that users take advantage of \code{R} packages such as \code{Rcpp} (Eddelbuettel & Francois, 2011), \code{RcppArmadillo} (Eddelbuettel & Sanderson, 2014), or \code{RcppEigen} (Bates & Eddelbuettel, 2013) to implement this function.
+The computational time of \code{\link{ace}} is highly dependent on the computational time required to evaluate the user-supplied function \code{utility}. Therefore it is recommended that users take advantage of \code{R} packages such as \code{Rcpp} (Eddelbuettel & Francois, 2011), \code{RcppArmadillo} (Eddelbuettel & Sanderson, 2014), or \code{RcppEigen} (Bates & Eddelbuettel, 2013), that provide convenient interfaces for compiled programming languages.
 
-The function \code{\link{aceglm}} is a wrapper function for \code{\link{ace}} which uses the ACE algorithm to find pseudo-Bayesian optimal experimental designs for generalised linear models.
+The functions \code{\link{aceglm}} and \code{\link{acenlm}} are user-friendly wrapper functions for \code{\link{ace}} which use the ACE algorithm to find Bayesian optimal experimental designs for generalised linear models and non-linear models, respectively. As special cases, both of these functions can find pseudo-Bayesian optimal designs.
 
-For more details on the underpinning methodology, see Overstall & Woods (2015).
+For more details on the underpinning methodology, see Overstall & Woods (2017).
 }
 \author{
-Antony M. Overstall & David C. Woods
+Antony M. Overstall, David C. Woods & Maria Adamou
 
-Maintainer: Antony M. Overstall \email{Antony.Overstall@glasgow.ac.uk}
+Maintainer: Antony. M.Overstall \email{A.M.Overstall@soton.ac.uk}
 }
 \references{
 Bates, D. & Eddelbuettel, D. (2013). Fast and Elegant Numerical Linear Algebra Using the 
 RcppEigen Package. \emph{Journal of Statistical Software}, \bold{52(5)}, 1-24. 
 \url{http://www.jstatsoft.org/v52/i05/}
+
+Chaloner, K. & Verdinelli, I. (1995). Bayesian Experimental Design: A Review. \emph{Statistical
+Science}, \bold{10}, 273-304.
 
 Eddelbuettel, D. & Francois, R. (2011). Rcpp: Seamless R and C++ Integration. 
 \emph{Journal of Statistical Software}, \bold{40(8)}, 1-18. \url{http://www.jstatsoft.org/v40/i08/}
@@ -53,16 +59,19 @@ Eddelbuettel, D. & Francois, R. (2011). Rcpp: Seamless R and C++ Integration.
 Eddelbuettel, D. & Sanderson, C. (2014). RcppArmadillo: Accelerating R with high-performance 
 C++ linear algebra. \emph{Computational Statistics and Data Analysis}, \bold{71}, 1054-1063.
 
-Overstall, A.M. & Woods, D.C. (2015). Bayesian Design of Experiments using
-Approximate Coordinate Exchange. \emph{arXiv:1501.00264}.
+Meyer, R. & Nachtsheim, C. (1995). The Coordinate Exchange Algorithm for Constructing Exact
+Optimal Experimental Designs. \emph{Technometrics}, \bold{37}, 60-69.
+
+Overstall, A.M. & Woods, D.C. (2017). Bayesian design of experiments using
+approximate coordinate exchange. \emph{Technometrics}, in press. (\emph{arXiv:1501.00264}).
 }
 
 \keyword{package}
 
 \examples{
-## This example uses aceglm to find a Bayesian D-optimal design for a 
+## This example uses aceglm to find a pseudo-Bayesian D-optimal design for a 
 ## first order logistic regression model with 6 runs 4 factors (i.e. 5 parameters).
-## The priors are those used by Overstall & Woods (2015), i.e. a uniform prior 
+## The priors are those used by Overstall & Woods (2017), i.e. a uniform prior 
 ## distribution is assumed for each parameter. The design space for each coordinate 
 ## is [-1, 1].
 
@@ -88,10 +97,12 @@ t(t(6*matrix(runif(n=5*B),ncol=5))+low)}
 ## distribution for the model parameters.
 
 example<-aceglm(formula=~x1+x2+x3+x4, start.d = start.d, family = binomial, 
-prior = prior , criterion = "D", B = c(1000,1000), N1 = 1, N2 = 0, upper = 1)
+prior = prior , criterion = "D", method="MC", B = c(1000,1000), N1 = 1, N2 = 0, 
+upper = 1)
 ## Call the aceglm function which implements the ACE algorithm requesting 
-## only one iteration of Phase I and zero iterations of Phase II. The Monte
-## Carlo sample size for the comparison procedure (B[1]) is set to 1000.
+## only one iteration of Phase I and zero iterations of Phase II (chosen for 
+## illustrative purposes). The Monte Carlo sample size for the comparison 
+## procedure (B[1]) is set to 1000 (chosen again for illustrative purposes).
 
 example
 ## Print out a short summary. 
@@ -108,6 +119,8 @@ example
 #Number of Phase II iterations = 0
 #
 #Computer time = 00:00:02
+
+## The final design found is:
 
 example$phase2.d
 

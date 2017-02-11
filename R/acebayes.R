@@ -1,3 +1,721 @@
+############ utilityglm ############################
+
+utilityglm <- function (formula, family, prior, criterion = c("D", "A", "E", "SIG", "NSEL", "SIG-Norm", "NSEL-Norm"), 
+                         method = c("quadrature", "MC"), nrq) 
+{
+  
+  criterion <- match.arg(criterion)
+  if(length(method) > 1) {
+    method = switch(EXPR=criterion,
+                    D = "quadrature",
+                    A = "quadrature",
+                    E = "quadrature",
+                    "MC")
+  } 
+  method <- match.arg(method)
+  if(identical(method, "MC") && !is.function(prior)) stop("For method = \"MC\", argument prior must specify a function.") 
+  
+  if(criterion %in% c("SIG", "NSEL", "SIG-Norm", "NSEL-Norm") && pmatch(method, "quadrature", nomatch = 0)) {
+    warning("method = \"quadrature\" is not available for SIG and NSEL utilities. Using method = \"MC\"", immediate. = TRUE)
+    method <- "MC"
+  }
+  
+  if(missing(nrq)) {
+    nrq <- switch(method,
+                  quadrature = c(2, 8),
+                  NULL)
+  }  
+  nr <- nrq[[1]]
+  nq <- nrq[[2]]
+  
+  
+  if (criterion == "A" | criterion == "D" | criterion == "E") {
+    if(identical(method, "quadrature")) {
+      no.terms <- 1 + length(attr(terms(formula), "term.labels"))
+      
+      if(identical(names(prior)[1:2], c("mu", "sigma2"))) {
+        if(identical(length(prior$mu), as.integer(1))) {
+          qmu <- rep(prior$mu, no.terms)
+        } else {
+          qmu <- prior$mu 
+        }
+        if(identical(dim(prior$sigma2), as.integer(2))) {
+          qsigma <- prior$sigma
+        } else {
+          qsigma2 <- diag(prior$sigma2, nrow = no.terms)
+        }
+        quad <- RSquadrature(no.terms, qmu, qsigma2, nr, nq)
+        abscissas <- as.matrix(quad$a)
+        weights <- quad$w
+      } else if(identical(names(prior)[1], "limits")) {
+        if(!identical(dim(t(prior$limits)), as.integer(c(no.terms, 2)))) {
+          stop("Uniform prior: the prior support must be specified as a 
+               matrix with dimension c(2, number of terms); see help file ")
+        }
+        quad <- RSquadrature.uniform(no.terms, t(prior$limits), nr, nq)
+        abscissas <- as.matrix(quad$a)
+        weights <- quad$w
+        } else {
+          stop("Argument \"prior\" must correctly specify a normal or uniform prior for the model parameters (see help file).")
+        }
+      inte <- function(d, B) {
+        x <- model.matrix(object = formula, data = data.frame(d))
+        v <- utilglm(x = x, beta = abscissas, family = "binomial", criterion = criterion)
+        weighted.mean(v, weights)
+      }
+    } else {
+      inte <- function(d, B) {
+        x <- model.matrix(object = formula, data = data.frame(d))
+        beta <- prior(B)
+        utilglm(x = x, beta = beta, family = family, criterion = criterion)
+      }
+    }
+  }
+  else {
+    if (criterion == "SIG") {
+      if (!is.function(family)) {
+        if (is.list(family)) {
+          stuff <- family
+        }
+        else {
+          family2 <- get(family, mode = "function", envir = parent.frame())
+          stuff <- family2()
+        }
+      }
+      else {
+        stuff <- family()
+      }
+      if (stuff$family != "binomial" & stuff$family != 
+          "poisson") {
+        stop("Family or link not implemented for Shannon information gain (SIG) utility yet")
+      }
+      else {
+        if (stuff$family == "binomial") {
+          if (stuff$link == "logit") {
+            inte <- function(d, B) {
+              sam <- prior(2 * B)
+              x <- model.matrix(object = formula, data = data.frame(d))
+              n1 <- dim(x)[1]
+              rho <- 1/(1 + exp(-sam %*% t(x)))
+              Z <- log(1 - rho[-(1:B), ])
+              frho <- as.vector(.Call("rowSumscpp", Z, 
+                                      PACKAGE = "acebayes"))
+              y <- matrix(rbinom(n = n1 * B, size = 1, 
+                                 prob = as.vector(rho[1:B, ])), ncol = n1)
+              Z <- dbinom(x = y, size = 1, prob = rho[1:B, 
+                                                      ], log = TRUE)
+              rsll <- as.vector(.Call("rowSumscpp", Z, 
+                                      PACKAGE = "acebayes"))
+              sam <- sam[-(1:B), ]
+              rsll4 <- as.vector(.Call("siglrcpp", y, 
+                                       x, sam, frho, PACKAGE = "acebayes"))
+              MY3 <- log(rsll4/B)
+              eval <- rsll - MY3
+              eval
+            }
+          }
+          else {
+            stop("Family or link not implemented for Shannon information gain (SIG) utility yet")
+          }
+        }
+        if (stuff$family == "poisson") {
+          if (stuff$link == "log") {
+            inte <- function(d, B) {
+              sam <- prior(2 * B)
+              x <- model.matrix(object = formula, data = data.frame(d))
+              n1 <- dim(x)[1]
+              rho <- exp(sam %*% t(x))
+              frho <- as.vector(.Call("rowSumscpp", rho[-(1:B), 
+                                                        ], PACKAGE = "acebayes"))
+              y <- matrix(rpois(n = n1 * B, lambda = as.vector(rho[1:B, 
+                                                                   ])), ncol = n1)
+              yfrac <- as.vector(.Call("rowSumscpp", 
+                                       lfactorial(y), PACKAGE = "acebayes"))
+              Z <- dpois(x = y, lambda = rho[1:B, ], 
+                         log = TRUE)
+              rsll <- as.vector(.Call("rowSumscpp", Z, 
+                                      PACKAGE = "acebayes"))
+              sam <- sam[-(1:B), ]
+              rsll4 <- as.vector(.Call("sigprcpp", y, 
+                                       x, sam, frho, yfrac, PACKAGE = "acebayes"))
+              rsll - rsll4
+            }
+          }
+          else {
+            stop("Family or link not implemented for Shannon information gain (SIG) utility yet")
+          }
+        }
+      }
+    }
+    if (criterion == "SIG-Norm") {
+      if (!is.function(family)) {
+        if (is.list(family)) {
+          stuff <- family
+        }
+        else {
+          family2 <- get(family, mode = "function", envir = parent.frame())
+          stuff <- family2()
+        }
+      }
+      else {
+        stuff <- family()
+      }
+      if (stuff$family != "binomial" & stuff$family != 
+          "poisson") {
+        stop("Family or link not implemented for Shannon information gain (SIG) utility yet")
+      }
+      else {
+        if (stuff$family == "binomial") {
+          if (stuff$link == "logit") {
+            inte <- function(d, B) {
+              sam <- prior(2 * B)
+              pm <- apply(sam[1:B, ], 2, mean)
+              pv <- apply(sam[1:B, ], 2, var)
+              sam <- sam[-(1:B), ]
+              X <- model.matrix(object = formula, data = data.frame(d))
+              n1 <- dim(X)[1]
+              rho <- 1/(1 + exp(-sam %*% t(X)))
+              y <- matrix(rbinom(n = n1 * B, size = 1, 
+                                 prob = as.vector(rho)), ncol = n1)
+              out <- as.vector(.Call("LRLAP2cpp", y, 
+                                     sam, X, pm, pv, PACKAGE = "acebayes"))
+              out
+            }
+          }
+          else {
+            stop("Family or link not implemented for Shannon information gain (SIG) utility yet")
+          }
+        }
+        if (stuff$family == "poisson") {
+          if (stuff$link == "log") {
+            inte <- function(d, B) {
+              sam <- prior(2 * B)
+              pm <- apply(sam[1:B, ], 2, mean)
+              pv <- apply(sam[1:B, ], 2, var)
+              sam <- sam[-(1:B), ]
+              X <- model.matrix(object = formula, data = data.frame(d))
+              n1 <- dim(X)[1]
+              rho <- exp(sam %*% t(X))
+              y <- matrix(rpois(n = n1 * B, lambda = as.vector(rho)), 
+                          ncol = n1)
+              out <- as.vector(.Call("PRLAP2cpp", y, 
+                                     sam, X, pm, pv, PACKAGE = "acebayes"))
+              out
+            }
+          }
+          else {
+            stop("Family or link not implemented for Shannon information gain (SIG) utility yet")
+          }
+        }
+      }
+    }
+    if (criterion == "NSEL") {
+      if (!is.function(family)) {
+        if (is.list(family)) {
+          stuff <- family
+        }
+        else {
+          family2 <- get(family, mode = "function", envir = parent.frame())
+          stuff <- family2()
+        }
+      }
+      else {
+        stuff <- family()
+      }
+      if (stuff$family != "binomial" & stuff$family != 
+          "poisson") {
+        stop("Family or link not implemented for negative squared error loss (NSEL) utility yet")
+      }
+      else {
+        if (stuff$family == "binomial") {
+          if (stuff$link == "logit") {
+            inte <- function(d, B) {
+              sam <- prior(2 * B)
+              x <- model.matrix(object = formula, data = data.frame(d))
+              n1 <- dim(x)[1]
+              rho <- 1/(1 + exp(-sam %*% t(x)))
+              Z <- log(1 - rho[-(1:B), ])
+              frho <- as.vector(.Call("rowSumscpp", Z, 
+                                      PACKAGE = "acebayes"))
+              y <- matrix(rbinom(n = n1 * B, size = 1, 
+                                 prob = as.vector(rho[1:B, ])), ncol = n1)
+              fsam <- sam[1:B, ]
+              sam <- sam[-(1:B), ]
+              rsll4 <- .Call("nsellrcpp", y, x, sam, 
+                             frho, PACKAGE = "acebayes")
+              Z <- (rsll4 - fsam)^2
+              eval <- as.vector(.Call("rowSumscpp", Z, 
+                                      PACKAGE = "acebayes"))
+              -eval
+            }
+          }
+          else {
+            stop("Family or link not implemented for negative squared error loss (NSEL) utility yet")
+          }
+        }
+        if (stuff$family == "poisson") {
+          if (stuff$link == "log") {
+            inte <- function(d, B) {
+              sam <- prior(2 * B)
+              x <- model.matrix(object = formula, data = data.frame(d))
+              n1 <- dim(x)[1]
+              rho <- exp(sam %*% t(x))
+              frho <- as.vector(.Call("rowSumscpp", rho, 
+                                      PACKAGE = "acebayes"))
+              y <- matrix(rpois(n = n1 * B, lambda = as.vector(rho[1:B, 
+                                                                   ])), ncol = n1)
+              yfrac <- as.vector(.Call("rowSumscpp", 
+                                       lfactorial(y), PACKAGE = "acebayes"))
+              fsam <- sam[1:B, ]
+              sam <- sam[-(1:B), ]
+              rsll4 <- .Call("nselprcpp", y, x, sam, 
+                             frho, yfrac, PACKAGE = "acebayes")
+              Z <- (rsll4 - fsam)^2
+              eval <- as.vector(.Call("rowSumscpp", Z, 
+                                      PACKAGE = "acebayes"))
+              -eval
+            }
+          }
+          else {
+            stop("Family or link not implemented for negative squared error loss (NSEL) utility yet")
+          }
+        }
+      }
+    }
+    if (criterion == "NSEL-Norm") {
+      if (!is.function(family)) {
+        if (is.list(family)) {
+          stuff <- family
+        }
+        else {
+          family2 <- get(family, mode = "function", envir = parent.frame())
+          stuff <- family2()
+        }
+      }
+      else {
+        stuff <- family()
+      }
+      if (stuff$family != "binomial" & stuff$family != 
+          "poisson") {
+        stop("Family or link not implemented for negative squared error loss (NSEL) utility yet")
+      }
+      else {
+        if (stuff$family == "binomial") {
+          if (stuff$link == "logit") {
+            inte <- function(d, B) {
+              sam <- prior(2 * B)
+              pm <- apply(sam[1:B, ], 2, mean)
+              pv <- apply(sam[1:B, ], 2, var)
+              sam <- sam[-(1:B), ]
+              X <- model.matrix(object = formula, data = data.frame(d))
+              n1 <- dim(X)[1]
+              rho <- 1/(1 + exp(-sam %*% t(X)))
+              y <- matrix(rbinom(n = n1 * B, size = 1, 
+                                 prob = as.vector(rho)), ncol = n1)
+              out <- as.vector(.Call("LRNSELLAP2cpp", 
+                                     y, sam, X, pm, pv, PACKAGE = "acebayes"))
+              out
+            }
+          }
+          else {
+            stop("Family or link not implemented for negative squared error loss (NSEL) utility yet")
+          }
+        }
+        if (stuff$family == "poisson") {
+          if (stuff$link == "log") {
+            inte <- function(d, B) {
+              sam <- prior(2 * B)
+              pm <- apply(sam[1:B, ], 2, mean)
+              pv <- apply(sam[1:B, ], 2, var)
+              sam <- sam[-(1:B), ]
+              X <- model.matrix(object = formula, data = data.frame(d))
+              n1 <- dim(X)[1]
+              rho <- exp(sam %*% t(X))
+              y <- matrix(rpois(n = n1 * B, lambda = as.vector(rho)), 
+                          ncol = n1)
+              out <- as.vector(.Call("PRNSELLAP2cpp", 
+                                     y, sam, X, pm, pv, PACKAGE = "acebayes"))
+              out
+            }
+          }
+          else {
+            stop("Family or link not implemented for negative squared error loss (NSEL) utility yet")
+          }
+        }
+      }
+    }
+  }
+  output <- list(utility = inte)
+  output
+}
+
+############ utilitynlm ############################
+
+utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "SIG", "NSEL"), 
+                         method = c("quadrature", "MC"), nrq) 
+{
+
+  criterion <- match.arg(criterion)
+  if(length(method) > 1) {
+    method = switch(EXPR=criterion,
+                    D = "quadrature",
+                    A = "quadrature",
+                    E = "quadrature",
+                    "MC")
+  } 
+  method <- match.arg(method)
+  if(identical(method, "MC") && !is.function(prior)) stop("For method = \"MC\", argument prior must specify a function.") 
+  
+  if(criterion %in% c("SIG", "NSEL") && pmatch(method, "quadrature", nomatch = 0)) {
+    warning("method = \"quadrature\" is not available for SIG and NSEL utilities. Using method = \"MC\"", immediate. = TRUE)
+    method <- "MC"
+  }
+  
+  if(missing(nrq)) {
+    nrq <- switch(method,
+      quadrature = c(2, 8),
+      NULL)
+  }  
+  nr <- nrq[[1]]
+  nq <- nrq[[2]]
+  
+  
+  allvars <- all.vars(formula)
+  paravars <- setdiff(allvars, desvars)
+  p <- length(paravars)
+  k <- length(desvars)
+  DD <- deriv(expr = formula, namevec = paravars)
+  aDD <- as.character(DD)
+  grad <- function() {
+  }
+  gradtext <- "grad<-function(d,paras){ \n"
+  gradtext <- paste(gradtext, desvars[1], "<-d[,1]", " \n ", 
+                    sep = "")
+  if (k > 1) {
+    for (j in 2:k) {
+      gradtext <- paste(gradtext, desvars[j], "<-d[,", 
+                        j, "]", " \n ", sep = "")
+    }
+  }
+  gradtext <- paste(gradtext, paravars[1], "<-paras[,1]", " \n ", 
+                    sep = "")
+  if (p > 1) {
+    for (j in 2:p) {
+      gradtext <- paste(gradtext, paravars[j], "<-paras[,", 
+                        j, "]", " \n ", sep = "")
+    }
+  }
+  gradtext <- paste(gradtext, substr(x = aDD, start = 2, stop = nchar(aDD)), 
+                    sep = "")
+  eval(parse(text = gradtext))
+
+  if (criterion == "A" | criterion == "D" | criterion == "E") {
+    if(identical(method, "quadrature")) {
+      no.terms <- p
+      
+      if(identical(names(prior)[1:2], c("mu", "sigma2"))) {
+        if(is.null(names(prior$mu))) stop("The names attribute for mu must correspond to the named parameters in the model formula.")
+        if(!identical(length(prior$mu), p)) {
+          stop("Normal prior: mean must have the same length as the number of model parameters")
+        } else {
+          qmu <- prior$mu 
+        }
+        if(identical(dim(prior$sigma2), 2)) {
+          qsigma <- prior$sigma
+        } else {
+          qsigma2 <- diag(prior$sigma2, nrow = no.terms)
+        }
+        if(!identical(TRUE, compare(paravars, names(prior$mu), ignoreOrder = TRUE)$result)) {
+          stop("Normal prior: the names attribute for mu must correspond to the named parameters in the model formula.")
+        }
+        quad <- RSquadrature(no.terms, qmu, qsigma2, nr, nq)
+        abscissas <- as.matrix(quad$a)
+        colnames(abscissas) <- names(prior$mu)
+        weights <- quad$w
+      } else if(identical(names(prior)[1], "limits")) {
+        if(!identical(dim(t(prior$limits)), as.integer(c(no.terms, 2)))) {
+          stop("Uniform prior: the prior support must be specified as a 
+               matrix with dimension c(2, number of terms); see help file ")
+        }
+        if(!identical(TRUE, compare(paravars, colnames(prior$limits), ignoreOrder = TRUE)$result)) {
+          stop("Uniform prior: the column names attribute for limits must correspond to the named parameters in the model formula.")
+        }
+        quad <- RSquadrature.uniform(no.terms, t(prior$limits), nr, nq)
+        abscissas <- as.matrix(quad$a)
+        colnames(abscissas) <- colnames(prior$limits)
+        weights <- quad$w
+        } else {
+          stop("Argument \"prior\" must correctly specify a normal or uniform prior for the model parameters (see help file).")
+        }
+    }
+  }
+  if (criterion == "D") {
+    if(identical(method, "MC")) {
+      inte <- function(d, B) {
+        n1 <- dim(d)[1]
+        sam <- prior(B)
+#        d2 <- 0.5 * (d + 1) * diff + lower
+        d3 <- matrix(0, ncol = k, nrow = B * n1)
+        for (i in 1:k) {
+          d3[, i] <- rep(d[, i], B)
+        }
+        sam3 <- matrix(0, ncol = p, nrow = B * n1)
+        for (i in 1:p) {
+          sam3[, paravars == paravars[i]] <- rep(sam[, colnames(sam) == paravars[i]], each = n1)
+        }
+        jac <- attributes(grad(d = d3, paras = sam3))$gradient
+        as.vector(.Call("Dnlmcpp", jac, c(n1, B), PACKAGE = "acebayes"))
+      }
+    } else {
+      inte <- function(d, B) {
+        n1 <- dim(d)[1]
+        sam <- abscissas
+        B <- nrow(sam)
+#        d2 <- 0.5 * (d + 1) * diff + lower
+        d3 <- matrix(0, ncol = k, nrow = B * n1)
+        for (i in 1:k) {
+          d3[, i] <- rep(d[, i], B)
+        }
+        sam3 <- matrix(0, ncol = p, nrow = B * n1)
+        for (i in 1:p) {
+          # cat("p = ", p, ", rep ... = ", rep(sam[, colnames(sam) == paravars[i]], each = n1), "\n")
+          sam3[, paravars == paravars[i]] <- rep(sam[, colnames(sam) == paravars[i]], each = n1)
+        }
+        jac <- attributes(grad(d = d3, paras = sam3))$gradient
+        v <- as.vector(.Call("Dnlmcpp", jac, c(n1, B), PACKAGE = "acebayes"))
+        weighted.mean(v, weights)
+      }
+    }
+  }
+  if (criterion == "A") {
+    if(identical(method, "MC")) {
+      inte <- function(d, B) {
+        n1 <- dim(d)[1]
+        sam <- prior(B)
+ #       d2 <- 0.5 * (d + 1) * diff + lower
+        d3 <- matrix(0, ncol = k, nrow = B * n1)
+        for (i in 1:k) {
+          d3[, i] <- rep(d[, i], B)
+        }
+        sam3 <- matrix(0, ncol = p, nrow = B * n1)
+        for (i in 1:p) {
+          sam3[, paravars == paravars[i]] <- rep(sam[, 
+                                                     colnames(sam) == paravars[i]], each = n1)
+        }
+        jac <- attributes(grad(d = d3, paras = sam3))$gradient
+        as.vector(.Call("Anlmcpp", jac, c(n1, B), PACKAGE = "acebayes"))
+      }
+    } else {
+      inte <- function(d, B) {
+        n1 <- dim(d)[1]
+        sam <- abscissas
+        B <- nrow(sam)
+#        d2 <- 0.5 * (d + 1) * diff + lower
+        d3 <- matrix(0, ncol = k, nrow = B * n1)
+        for (i in 1:k) {
+          d3[, i] <- rep(d[, i], B)
+        }
+        sam3 <- matrix(0, ncol = p, nrow = B * n1)
+        for (i in 1:p) {
+          sam3[, paravars == paravars[i]] <- rep(sam[, 
+                                                     colnames(sam) == paravars[i]], each = n1)
+        }
+        jac <- attributes(grad(d = d3, paras = sam3))$gradient
+        v <- as.vector(.Call("Anlmcpp", jac, c(n1, B), PACKAGE = "acebayes"))
+        weighted.mean(v, weights)
+      }
+    }
+  }
+  if (criterion == "E") {
+    if(identical(method, "MC")) {
+      inte <- function(d, B) {
+        n1 <- dim(d)[1]
+        sam <- prior(B)
+#        d2 <- 0.5 * (d + 1) * diff + lower
+        d3 <- matrix(0, ncol = k, nrow = B * n1)
+        for (i in 1:k) {
+          d3[, i] <- rep(d[, i], B)
+        }
+        sam3 <- matrix(0, ncol = p, nrow = B * n1)
+        for (i in 1:p) {
+          sam3[, paravars == paravars[i]] <- rep(sam[, 
+                                                     colnames(sam) == paravars[i]], each = n1)
+        }
+        jac <- attributes(grad(d = d3, paras = sam3))$gradient
+        as.vector(.Call("Enlmcpp", jac, c(n1, B), PACKAGE = "acebayes"))
+      } 
+    } else {
+      inte <- function(d, B) {
+        n1 <- dim(d)[1]
+        sam <- abscissas
+        B <- nrow(sam)
+#        d2 <- 0.5 * (d + 1) * diff + lower
+        d3 <- matrix(0, ncol = k, nrow = B * n1)
+        for (i in 1:k) {
+          d3[, i] <- rep(d[, i], B)
+        }
+        sam3 <- matrix(0, ncol = p, nrow = B * n1)
+        for (i in 1:p) {
+          sam3[, paravars == paravars[i]] <- rep(sam[, 
+                                                     colnames(sam) == paravars[i]], each = n1)
+        }
+        jac <- attributes(grad(d = d3, paras = sam3))$gradient
+        v <- as.vector(.Call("Enlmcpp", jac, c(n1, B), PACKAGE = "acebayes"))
+        weighted.mean(v, weights)
+      }
+    }
+  }
+  if (criterion == "SIG") {
+    inte <- function(d, B) {
+      n1 <- dim(d)[1]
+      B2 <- B * 2
+      sam <- prior(B2)
+      d3 <- matrix(0, ncol = k, nrow = B2 * n1)
+      for (i in 1:k) {
+        d3[, i] <- rep(d[, i], B2)
+      }
+      sam3 <- matrix(0, ncol = p, nrow = B2 * n1)
+      for (i in 1:p) {
+        sam3[, paravars == paravars[i]] <- rep(sam[, 
+                                                   colnames(sam) == paravars[i]], each = n1)
+      }
+      mu1 <- matrix(grad(d = d3, paras = sam3)[1:(B2 * 
+                                                    n1)], ncol = n1, byrow = TRUE)
+      mu2 <- mu1[-(1:B), ]
+      mu1 <- mu1[1:B, ]
+      y <- matrix(rnorm(n = n1 * B, mean = as.vector(mu1), 
+                        sd = rep(sqrt(sam[1:B, colnames(sam) == "sig2"]), 
+                                 n1)), ncol = n1)
+      as.vector(.Call("SIGnlmcpp", y, mu1, mu2, sam[1:B, 
+                                                    colnames(sam) == "sig2"], sam[-(1:B), colnames(sam) == 
+                                                                                    "sig2"], PACKAGE = "acebayes"))
+    }
+  }
+  if (criterion == "NSEL") {
+    inte <- function(d, B) {
+      n1 <- dim(d)[1]
+      B2 <- B * 2
+      sam <- prior(B2)
+      d3 <- matrix(0, ncol = k, nrow = B2 * n1)
+      for (i in 1:k) {
+        d3[, i] <- rep(d[, i], B2)
+      }
+      sam3 <- matrix(0, ncol = p, nrow = B2 * n1)
+      for (i in 1:p) {
+        sam3[, paravars == paravars[i]] <- rep(sam[, 
+                                                   colnames(sam) == paravars[i]], each = n1)
+      }
+      mu1 <- matrix(grad(d = d3, paras = sam3)[1:(B2 * 
+                                                    n1)], ncol = n1, byrow = TRUE)
+      mu2 <- mu1[-(1:B), ]
+      mu1 <- mu1[1:B, ]
+      y <- matrix(rnorm(n = n1 * B, mean = as.vector(mu1), 
+                        sd = rep(sqrt(sam[1:B, colnames(sam) == "sig2"]), 
+                                 n1)), ncol = n1)
+      as.vector(.Call("NSELnlmcpp", y, mu2, sam[-(1:B), 
+                                                colnames(sam) == "sig2"], sam[1:B, colnames(sam) != 
+                                                                                "sig2"], sam[-(1:B), colnames(sam) != "sig2"], 
+                      PACKAGE = "acebayes"))
+    }
+  }
+  output <- list(utility = inte)
+  output
+}
+
+############ acenlm ############################
+
+## if method="quadrature", prior is a list with (a) for normal dist, mean, var, (optionally) nr and ns; 
+## (b) for uniform dist, limits, (optionally) nr and ns
+## mu must have named elements, limits must have named columns
+
+acenlm <- function (formula, start.d, prior, B, criterion = c("D", "A", "E", "SIG", "NSEL"), 
+                     method = c("quadrature", "MC"), Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, 
+                     progress = FALSE, limits = NULL, tolerence = 1e-08) 
+{
+  
+  criterion <- match.arg(criterion)
+  if(length(method) > 1) {
+    method = switch(EXPR=criterion,
+                    D = "quadrature",
+                    A = "quadrature",
+                    E = "quadrature",
+                    "MC")
+  } 
+  method <- match.arg(method)
+  if(identical(method, "MC") && !is.function(prior)) stop("For method = \"MC\", argument prior must specify a function.") 
+  
+  if(missing(B)) {
+    B <- switch(method,
+                MC = c(20000, 1000),
+                quadrature = c(2, 8))
+  }
+  
+  utilobj <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(start.d)[[2]], 
+                         criterion = criterion, method = method, nrq = B) 
+  
+  cat("\n")
+  cat("acenlm: summary of inputs\n\n")
+  cat("Formula: "); print(formula)
+  cat("Criterion: ", criterion, "\n")
+  cat("Method: ", method, "\n\n")
+  if(identical(method, "MC")) cat("B: ", B, "\n\n")
+  else {
+    cat("nr = ", B[[1]], ", nq = ", B[[2]],"\n")
+    if(identical(names(prior)[1:2], c("mu", "sigma2"))) cat("Prior: normal\n\n")
+    if(identical(names(prior)[1], "limits")) cat("Prior: uniform\n\n")       
+  }
+  
+  
+  inte <- function(d, B) {
+    d2 <- 0.5 * (d + 1) * diff + lower
+    utilobj$utility(d2, B)
+  }
+  
+  deterministic <- FALSE
+  if(identical(method, "quadrature")) deterministic <- TRUE
+  mainupper <- upper
+  mainlower <- lower
+  mainlimits <- limits
+  limits2 <- mainlimits
+  if (length(mainlimits) != 0) {
+    limits2 <- function(d, i, j) {
+      d1 <- 0.5 * (d + 1) * (mainupper - mainlower) + mainlower
+      out <- mainlimits(d = d1, i = i, j = j)
+      if (is.matrix(mainupper)) {
+        out1 <- 2 * (out - mainlower[i, j])/(mainupper[i, 
+                                                       j] - mainlower[i, j]) - 1
+      }
+      else {
+        out1 <- 2 * (out - mainlower)/(mainupper - mainlower) - 
+          1
+      }
+      out1
+    }
+  }
+  
+  diff <- upper - lower
+  start.d2 <- 2 * (start.d - lower)/diff - 1
+  output <- ace(utility = inte, start.d = start.d2, B = B, 
+                 Q = Q, N1 = N1, N2 = N2, lower = -1, upper = 1, progress = progress, 
+                 limits = limits2, deterministic = deterministic, tolerence = tolerence)
+  inte2 <- function(d, B) {
+    d1 <- 2 * (d - mainlower)/(mainupper - mainlower) - 1
+    inte(d = d1, B = B)
+  }
+  output$utility <- inte2
+  output$glm <- FALSE
+  output$nlm <- TRUE
+  output$criterion <- criterion
+  output$method <- method
+  output$prior <- prior
+  output$phase1.d <- 0.5 * (output$phase1.d + 1) * (mainupper - 
+                                                      mainlower) + mainlower
+  output$phase2.d <- 0.5 * (output$phase2.d + 1) * (mainupper - 
+                                                      mainlower) + mainlower
+  output
+}
+
+############ utilglm ############################
 
 utilglm<-function(x , beta, family, criterion = "D"){
 
@@ -22,6 +740,8 @@ eval<-.Call("Ecpp", x, w, PACKAGE = "acebayes")}
 
 as.vector(eval)}
 
+############ pval ############################
+
 pval <- function(oldeval, neweval, binary){
 if(binary){
 old_n<-length(oldeval)
@@ -34,6 +754,8 @@ details<-as.vector(.Call( "pvalcpp", oldeval, neweval, PACKAGE = "acebayes" ))
 out<-1-pt(details[1],df=details[2])}
 out}
 
+############ utilglm ############################
+
 noisyexpectutil<-function(utility, B, d, i, j, Dij){
 temp<-d
 z<-c()
@@ -42,13 +764,19 @@ temp[i,j]<-Dij[L]
 z[L]<-mean(utility(d=temp, B=B))}
 list(z=z,Dij=Dij)}
 
+############ distmat ############################
+
 distmat <- function(Dij){
 	.Call( "distcpp",Dij,PACKAGE = "acebayes" )
 }
 
+############ GPpred ############################
+
 GPpred <- function(paras, dist, z, newDij, Dij){
 as.vector(.Call( "GPpredcpp",paras, dist, z, newDij, Dij, PACKAGE = "acebayes" ))
 }
+
+############ FisherScoring2D ############################
 
 FisherScoring2D<-function(par, Dij, z, dist, tol = 1e-10, max.iter = 25){
 
@@ -120,267 +848,360 @@ singular<-1}
 
 list(par=theta, singular=singular)}
 
-acephase1<-function(utility, start.d, B = c(20000,1000), Q = 20, N1 = 20, lower, upper, limits = NULL, progress = FALSE, binary = FALSE){
+############ acephase1 ############################
 
-ptm<-proc.time()[3]
+acephase1 <- function (utility, start.d, B, Q = 20, N1 = 20, 
+          lower, upper, limits = NULL, progress = FALSE, binary = FALSE, deterministic = FALSE, tolerence = 1e-08) 
+{
+  if(missing(B) && identical(deterministic, FALSE)) B <- c(20000, 1000)
+  if(missing(B) && identical(deterministic, TRUE)) B <- NULL
 
-if(!is.matrix(upper)){
-UPPER<-upper+0*start.d} else{
-UPPER<-upper}
-if(!is.matrix(lower)){
-LOWER<-lower+0*start.d} else{
-LOWER<-lower}
-DIFF<-UPPER-LOWER
-
-if(length(limits)==0){
-limits2<-function(i, j, d){
-c(LOWER[i,j],sort(runif(9998))*DIFF[i,j]+LOWER[i,j],UPPER[i,j])}} else{
-limits2<-limits}
-
-n<-dim(start.d)[1]
-k<-dim(start.d)[2]
-
-DESIGN<-start.d
-eval<-utility(d = start.d, B = B[1])
-curr<-mean(eval)
-curr2<-curr
-
-counter<-1
-
-best<-DESIGN
-inner<-DESIGN
-inner_eval<-curr
-
-while(counter<=N1){
-
-for(i in 1:n){
-for(j in 1:k){
-
-xxx<-as.vector(optimumLHS(n=Q,k=1))*DIFF[i,j]+LOWER[i,j]
-#####xxx<-c(0,as.vector(optimumLHS(n=Q-2,k=1)),1)*DIFF[i,j]+LOWER[i,j]
-yyy<-noisyexpectutil(utility=utility, B=B[2], d=DESIGN, i=i, j=j, Dij=xxx)$z
-
-A.array<-distmat(xxx)
-
-meany<-mean(yyy)
-sdy<-sd(yyy)
-zzz<-(yyy-meany)/sdy
-
-optgp<-FisherScoring2D(par=c(0,0), Dij=xxx, z=zzz, dist=A.array)
-opt<-NULL
-if(optgp$singular!=1){
-xxxz<-limits2(i = i, j = j, d = DESIGN)
-yyyz<-meany+sdy*GPpred(paras=optgp$par,dist=A.array,z=matrix(zzz,ncol=1),newDij=xxxz,Dij=xxx)
-
-opt<-NULL
-start<-xxxz[max(yyyz)==yyyz]
-if(length(start)==1){
-opt<-list(best.x=start)}}
-
-if(!is.null(opt)){
-	old_DESIGN<-DESIGN
-	new_DESIGN<-DESIGN
-	new_DESIGN[i,j]<-opt$best.x
-
-
-	old_eval<-utility(d=old_DESIGN,B=B[1])
-	new_eval<-utility(d=new_DESIGN,B=B[1])
-
-	the.p.val<-pval(old_eval,new_eval,binary)
-	the.p.val<-ifelse(is.na(the.p.val),0,the.p.val)
-
-	if(the.p.val>=runif(1)){
-		DESIGN<-new_DESIGN
-		curr<-c(curr,mean(new_eval))
-
-			if(curr[length(curr)]>inner_eval){
-			inner_eval<-curr[length(curr)]
-			inner<-new_DESIGN}
-
-		} else{
-		DESIGN<-old_DESIGN
-		curr<-c(curr,curr[length(curr)])}
-
-	} else{
-	curr<-c(curr,curr[length(curr)])}
-
-}}     						#### End of scan through all elements
-
-old_DESIGN<-best
-new_DESIGN<-inner
-
-old_eval<-utility(d=old_DESIGN,B=B[1])
-new_eval<-utility(d=new_DESIGN,B=B[1])
-
-the.p.val<-pval(old_eval,new_eval,binary)
-the.p.val<-ifelse(is.na(the.p.val),0,the.p.val)
-
-if(the.p.val>=runif(1)){
-best_eval<-mean(new_eval)
-best<-inner} else{
-inner<-best
-best_eval<-mean(old_eval)
-inner_eval<-best_eval}
-
-curr2<-c(curr2,best_eval)
-
-if(progress){
-cat("Phase I iteration ", counter, " out of ",N1," (Current value = ",best_eval,") \n",sep="")}
-counter<-counter+1
-}
-					
-ptm<-proc.time()[3]-ptm
-
-output<-list(start.d = start.d, phase1.d = best, phase2.d = best, phase1.trace = curr2, phase2.trace = NULL, Q = Q, N1 = N1, N2 = 0, glm = FALSE, criterion = "NA", family = "NA", prior = "NA", time = ptm, binary = binary)
-
-class(output)<-"ace"
-
-output}
-
-acephase2<-function(utility, start.d, B = c(20000,1000), N2 = 100, progress = FALSE, binary = FALSE){
-
-ptm<-proc.time()[3]
-
-n<-dim(start.d)[1]
-k<-dim(start.d)[2]
-
-DESIGN<-start.d
-CAND<-DESIGN
-
-eval<-utility(d=DESIGN,B=B[1])
-
-best<-DESIGN
-best_ob<-eval
-
-curr2<-mean(eval)
-counter2<-1
-if(progress){
-cat("Phase II iteration ", counter2, " out of ",N2," (Current value = ",curr2,") \n",sep="")}
-while(counter2<N2){
-
-crt<-c()
-for(j in 1:n){
-INTER<-rbind(DESIGN,CAND[j,])
-crt[j]<-mean(utility(d=INTER,B=B[2]))}
-
-#INTER<-rbind(DESIGN,CAND[(1:n)[max(crt)==crt],])
-potpts<-(1:n)[max(crt)==crt]
-if(length(potpts)>1){
-potpts<-sample(x=potpts,size=1)}   ### To get around situations where augmenting two different design pts leads to same expected utility (quite common with binary = TRUE)
-INTER<-rbind(DESIGN,CAND[potpts,])
-
-crt<-c()
-for(j in 1:(n+1)){
-INTER2<-as.matrix(INTER[-j,],nrow=n)
-crt[j]<-mean(utility(d=INTER2,B=B[2]))}
-
-#new_DESIGN<-matrix(INTER[-((1:(n+1))[max(crt)==crt]),],nrow=n,dimnames=dimnames(CAND))
-potpts<-(1:(n+1))[max(crt)==crt]
-if(length(potpts)>1){
-potpts<-sample(x=potpts,size=1)}   
-new_DESIGN<-matrix(INTER[-potpts,],nrow=n,dimnames=dimnames(CAND))
-
-old_DESIGN<-DESIGN
-
-old_eval<-utility(d=old_DESIGN,B=B[1])
-new_eval<-utility(d=new_DESIGN,B=B[1])
-
-the.p.val<-pval(old_eval,new_eval,binary)
-the.p.val<-ifelse(is.na(the.p.val),0,the.p.val)
-
-if(the.p.val>runif(1)){
-	curr2<-c(curr2,mean(new_eval))
-	DESIGN<-new_DESIGN
-	
-	the.p.val<-pval(best_ob,new_eval,binary)
-	the.p.val<-ifelse(is.na(the.p.val),0,the.p.val)
-
-	if(the.p.val>=runif(1)){
-		best<-DESIGN
-		best_ob<-new_eval}
-	} else{
-	curr2<-c(curr2,mean(old_eval))}
-
-counter2<-counter2+1
-if(progress){
-cat("Phase II iteration ", counter2, " out of ",N2," (Current value = ",curr2[length(curr2)],") \n",sep="")}
+  ptm <- proc.time()[3]
+  if (!is.matrix(upper)) {
+    UPPER <- upper + 0 * start.d
+  }
+  else {
+    UPPER <- upper
+  }
+  if (!is.matrix(lower)) {
+    LOWER <- lower + 0 * start.d
+  }
+  else {
+    LOWER <- lower
+  }
+  DIFF <- UPPER - LOWER
+  if (length(limits) == 0) {
+    limits2 <- function(i, j, d) {
+      c(LOWER[i, j], sort(runif(9998)) * DIFF[i, j] + LOWER[i, 
+                                                            j], UPPER[i, j])
+    }
+  }
+  else {
+    limits2 <- limits
+  }
+  n <- dim(start.d)[1]
+  k <- dim(start.d)[2]
+  DESIGN <- start.d
+  eval <- utility(d = start.d, B = B[[1]])
+  curr <- mean(eval)
+  curr2 <- curr
+  counter <- 1
+  best <- DESIGN
+  inner <- DESIGN
+  inner_eval <- curr
+  best_eval <- inner_eval + 1
+  while (counter <= N1) { 
+    for (i in 1:n) {
+      for (j in 1:k) {
+        xxx <- as.vector(optimumLHS(n = Q, k = 1)) * 
+          2 - 1
+        xxx2 <- 0.5 * (xxx + 1) * DIFF[i, j] + LOWER[i, 
+                                                     j]
+        yyy <- noisyexpectutil(utility = utility, B = B[[2]], 
+                               d = DESIGN, i = i, j = j, Dij = xxx2)$z 
+        A.array <- distmat(xxx)
+        meany <- mean(yyy)
+        sdy <- sd(yyy)
+        zzz <- (yyy - meany)/sdy
+        optgp <- FisherScoring2D(par = c(0, 0), Dij = xxx, 
+                                 z = zzz, dist = A.array)
+        opt <- NULL
+        if (optgp$singular != 1) {
+          xxxz <- limits2(i = i, j = j, d = DESIGN)
+          xxxz2 <- 2 * (xxxz - LOWER[i, j])/DIFF[i, j] - 
+            1
+          yyyz <- meany + sdy * GPpred(paras = optgp$par, 
+                                       dist = A.array, z = matrix(zzz, ncol = 1), 
+                                       newDij = xxxz2, Dij = xxx)
+          opt <- NULL
+          start <- xxxz[max(yyyz) == yyyz]
+          if (length(start) == 1) {
+            opt <- list(best.x = start)
+          }
+        }
+        if (!is.null(opt)) {
+          old_DESIGN <- DESIGN
+          new_DESIGN <- DESIGN
+          new_DESIGN[i, j] <- opt$best.x
+          old_eval <- utility(d = old_DESIGN, B = B[[1]])
+          new_eval <- utility(d = new_DESIGN, B = B[[1]])
+          if(deterministic) { 
+            the.p.val <- ifelse(new_eval > old_eval, 1, 0)
+          } else {
+            the.p.val <- pval(old_eval, new_eval, binary)
+            the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val) 
+          }
+          if (the.p.val >= runif(1)) { 
+            DESIGN <- new_DESIGN
+            curr <- c(curr, mean(new_eval))
+            if (curr[length(curr)] > inner_eval) {
+              inner_eval <- curr[length(curr)]
+              inner <- new_DESIGN
+            }
+          }
+          else {
+            DESIGN <- old_DESIGN
+            curr <- c(curr, curr[length(curr)])
+          }
+        }
+        else {
+          curr <- c(curr, curr[length(curr)])
+        }
+      }
+    }
+    old_DESIGN <- best
+    new_DESIGN <- inner
+    old_eval <- utility(d = old_DESIGN, B = B[[1]])
+    new_eval <- utility(d = new_DESIGN, B = B[[1]])
+    if(deterministic) { 
+      the.p.val <- ifelse(new_eval > old_eval + tolerence, 1, 0)
+      if(identical(the.p.val, 0)) break
+    } else {
+      the.p.val <- pval(old_eval, new_eval, binary)
+      the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val)
+    }
+    if (the.p.val >= runif(1)) {
+      best_eval <- mean(new_eval)
+      best <- inner
+    }
+    else {
+      inner <- best
+      best_eval <- mean(old_eval)
+      inner_eval <- best_eval
+    }
+    curr2 <- c(curr2, best_eval)
+    if (progress) {
+      cat("Phase I iteration ", counter, " out of ", N1, 
+          " (Current value = ", best_eval, ") \n", sep = "")
+    }
+    
+    counter <- counter + 1
+  
+  }
+  ptm <- proc.time()[3] - ptm
+  output <- list(utility = utility, start.d = start.d, phase1.d = best, 
+                 phase2.d = best, phase1.trace = curr2, phase2.trace = NULL, 
+                 Q = Q, N1 = N1, N2 = 0, glm = FALSE, nlm = FALSE, criterion = "NA", 
+                 family = "NA", prior = "NA", time = ptm, binary = binary, tolerence = tolerence, deterministic = deterministic)
+  class(output) <- "ace"
+  output
 }
 
-ptm<-proc.time()[3]-ptm
+############ acephase2 ############################
 
-output<-list(start.d = start.d, phase1.d = start.d, phase2.d = best, phase1.trace = NULL, phase2.trace = curr2, Q = NULL, N1 = 0, N2 = N2, glm = FALSE, criterion = "NA", family = "NA", prior = "NA", time = ptm, binary = binary)
+acephase2 <- function (utility, start.d, B, N2 = 100, progress = FALSE, 
+          binary = FALSE, deterministic = FALSE, tolerence = 1e-08) 
+{
+  if(missing(B) && identical(deterministic, FALSE)) B <- c(20000, 1000)
+  if(missing(B) && identical(deterministic, TRUE)) B <- NULL
+  
+  ptm <- proc.time()[3]
+  n <- dim(start.d)[1]
+  k <- dim(start.d)[2]
+  DESIGN <- start.d
+  CAND <- DESIGN
+  eval <- utility(d = DESIGN, B = B[[1]])
+  best <- DESIGN
+  best_ob <- eval
+  curr2 <- mean(eval)
+  counter2 <- 1
+  if (progress) {
+    cat("Phase II iteration ", counter2, " out of ", N2, 
+        " (Current value = ", curr2, ") \n", sep = "")
+  }
+  while (counter2 < N2) {
+    crt <- c()
+    for (j in 1:n) {
+      INTER <- rbind(DESIGN, CAND[j, ])
+      crt[j] <- mean(utility(d = INTER, B = B[[2]]))
+    }
+    potpts <- (1:n)[max(crt) == crt]
+    if (length(potpts) > 1) {
+      potpts <- sample(x = potpts, size = 1)
+    }
+    INTER <- rbind(DESIGN, CAND[potpts, ])
+    crt <- c()
+    for (j in 1:(n + 1)) {
+      INTER2 <- as.matrix(INTER[-j, ], nrow = n)
+      crt[j] <- mean(utility(d = INTER2, B = B[[2]]))
+    }
+    potpts <- (1:(n + 1))[max(crt) == crt]
+    if (length(potpts) > 1) {
+      potpts <- sample(x = potpts, size = 1)
+    }
+    new_DESIGN <- matrix(INTER[-potpts, ], nrow = n, dimnames = dimnames(CAND))
+    old_DESIGN <- DESIGN
+    old_eval <- utility(d = old_DESIGN, B = B[[1]])
+    new_eval <- utility(d = new_DESIGN, B = B[[1]])
+    if(deterministic) {
+      the.p.val <- ifelse(new_eval > old_eval, 1, 0) 
+    } else {
+      the.p.val <- pval(old_eval, new_eval, binary)
+      the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val)
+    }
+    if (the.p.val > runif(1)) {
+      curr2 <- c(curr2, mean(new_eval))
+      DESIGN <- new_DESIGN
+      the.p.val <- pval(best_ob, new_eval, binary)
+      the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val)
+      if (the.p.val >= runif(1)) {
+        best <- DESIGN
+        best_ob <- new_eval
+      }
+    }
+    else {
+      curr2 <- c(curr2, mean(old_eval))
+    }
+    counter2 <- counter2 + 1
+    if (progress) {
+      cat("Phase II iteration ", counter2, " out of ", 
+          N2, " (Current value = ", curr2[length(curr2)], 
+          ") \n", sep = "")
+    }
+    if(deterministic && counter2 > 2) {
+      if(!(curr2[counter2 - 1] > curr2[counter2 - 2] + tolerence)) break
+    }
+  }
+  ptm <- proc.time()[3] - ptm
+  output <- list(utility = utility, start.d = start.d, phase1.d = start.d, 
+                 phase2.d = best, phase1.trace = NULL, phase2.trace = curr2, 
+                 Q = NULL, N1 = 0, N2 = N2, glm = FALSE, nlm = FALSE, 
+                 criterion = "NA", family = "NA", prior = "NA", time = ptm, 
+                 binary = binary, deterministic = deterministic, tolerence = tolerence)
+  class(output) <- "ace"
+  output
+}
 
-class(output)<-"ace"
+############ ace ############################
 
-output}
+ace <- function (utility, start.d, B, Q = 20, N1 = 20, 
+          N2 = 100, lower = -1, upper = 1, limits = NULL, progress = FALSE, 
+          binary = FALSE, deterministic = FALSE, tolerence = 1e-08) 
+{
+  if(missing(B) && identical(deterministic, FALSE)) B <- c(20000, 1000)
+  if(missing(B) && identical(deterministic, TRUE)) B <- NULL
+  
+  ptm <- proc.time()[3]
+  if (N1 > 0) {
+    interim <- acephase1(utility = utility, start.d = start.d, 
+                         B = B, Q = Q, N1 = N1, lower = lower, upper = upper, 
+                         limits = limits, progress = progress, binary = binary, 
+                         deterministic = deterministic, tolerence = tolerence)
+    interim.d <- interim$phase1.d
+    interim.trace <- interim$phase1.trace
+  }
+  else {
+    interim.d <- start.d
+    interim.trace <- NULL
+  }
+  if (N2 > 0) {
+    last <- acephase2(utility = utility, start.d = interim.d, 
+                      B = B, N2 = N2, progress = progress, binary = binary, 
+                      deterministic = deterministic, tolerence = tolerence)
+    last.d <- last$phase2.d
+    last.trace <- last$phase2.trace
+  }
+  else {
+    last.d <- interim.d
+    last.trace <- NULL
+  }
+  ptm <- proc.time()[3] - ptm
+  output <- list(utility = utility, start.d = start.d, phase1.d = interim.d, 
+                 phase2.d = last.d, phase1.trace = interim.trace, phase2.trace = last.trace, 
+                 Q = Q, N1 = N1, N2 = N2, glm = FALSE, nlm = FALSE, criterion = "NA", 
+                 prior = "NA", time = ptm, binary = binary, deterministic = deterministic, 
+                 tolerence = tolerence)
+  class(output) <- "ace"
+  output
+}
 
+############ aceglm ############################
 
-ace<-function(utility, start.d, B = c(20000,1000), Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, limits = NULL, progress = FALSE, binary = FALSE){
+## if method="quadrature", prior is a list with (a) for normal dist, mean, var, (optionally) nr and ns; 
+## (b) for uniform dist, limits, (optionally) nr and ns
 
-ptm<-proc.time()[3]
+aceglm <- function (formula, start.d, family, prior, B, criterion = c("D", "A", "E", "SIG", "NSEL", "SIG-Norm", "NSEL-Norm"), 
+                     method = c("quadrature", "MC"), Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, 
+                     progress = FALSE, limits = NULL, tolerence = 1e-08) 
+{
+  criterion <- match.arg(criterion)
+  if(length(method) > 1) {
+    method = switch(EXPR=criterion,
+                    D = "quadrature",
+                    A = "quadrature",
+                    E = "quadrature",
+                    "MC")
+  } 
+  method <- match.arg(method)
+  if(identical(method, "MC") && !is.function(prior)) stop("For method = \"MC\", argument prior must specify a function.") 
+  
+  if(missing(B)) {
+   B <- switch(method,
+          MC = c(20000, 1000),
+          quadrature = c(2, 8))
+  }
+  
+  utilobj <- utilityglm(formula = formula, family = family, prior = prior, 
+                         criterion = criterion, method = method, nrq = B) 
+  
+  cat("\n")
+  cat("aceglm: summary of inputs\n\n")
+  cat("Formula: "); print(formula)
+  print(family())
+  cat("Criterion: ", criterion, "\n")
+  cat("Method: ", method, "\n\n")
+  if(identical(method, "MC")) cat("B: ", B, "\n\n")
+  else {
+    cat("nr = ", B[[1]], ", nq = ", B[[2]],"\n")
+    if(identical(names(prior)[1:2], c("mu", "sigma2"))) cat("Prior: normal\n\n")
+    if(identical(names(prior)[1], "limits")) cat("Prior: uniform\n\n")       
+  }
+  
+  inte <- function(d, B) {
+    utilobj$utility(d, B)
+  }
+  
+  deterministic <- FALSE
+  if(identical(method, "quadrature")) deterministic <- TRUE
+  
+  output <- ace(utility = inte, start.d = start.d, B = B, Q = Q, 
+                N1 = N1, N2 = N2, lower = lower, upper = upper, progress = progress, 
+                limits = limits, deterministic = deterministic, tolerence = tolerence)
+  output$glm <- TRUE
+  output$criterion <- criterion
+  output$method <- method
+  output$prior <- prior
+  output$phase1.d <- output$phase1.d
+  output$phase2.d <- output$phase2.d
+  output
+}
 
-if(N1>0){
-interim<-acephase1(utility = utility, start.d = start.d, B = B, Q = Q, N1 = N1, lower = lower, upper = upper, limits = limits, progress = progress, binary = binary)
-interim.d<-interim$phase1.d
-interim.trace<-interim$phase1.trace} else{
-interim.d<-start.d
-interim.trace<-NULL}
-
-if(N2>0){
-last<-acephase2(utility = utility, start.d = interim.d, B = B, N2 = N2, progress = progress, binary = binary)
-last.d<-last$phase2.d
-last.trace<-last$phase2.trace} else{
-last.d<-interim.d
-last.trace<-NULL}
-
-ptm<-proc.time()[3]-ptm
-
-output<-list(start.d = start.d, phase1.d = interim.d, phase2.d = last.d, phase1.trace = interim.trace, phase2.trace = last.trace, Q = Q, N1 = N1, N2 = N2, glm = FALSE, criterion = "NA", prior = "NA", time = ptm, binary = binary)
-
-class(output)<-"ace"
-
-output}
-
-aceglm<-function(formula, start.d, family, prior, criterion = "D", B = c(20000,1000),  Q = 20, N1 = 20, N2 = 100, 
-lower = -1, upper = 1, progress = FALSE){
-
-inte<-function(d, B){
-x<-model.matrix(object = formula, data = data.frame(d))
-beta<-prior(B)
-utilglm(x = x, beta = beta, family = family, criterion = criterion)}
-
-output<-ace(utility = inte, start.d = start.d, B = B, Q = Q, N1 = N1, N2 = N2, lower = lower, upper = upper, progress = progress)
-output$glm<-TRUE
-output$criterion<-criterion
-#output$family<-family
-output$prior<-prior
-output$phase1.d<-output$phase1.d
-output$phase2.d<-output$phase2.d
-
-output}
+############ plot.ace ############################
 
 plot.ace<-function(x,...){
 
 if(length(x$phase1.trace)>0 & length(x$phase2.trace)>0){
 ulim<-max(c(x$phase1.trace,x$phase2.trace))
 llim<-min(c(x$phase1.trace,x$phase2.trace))
-plot(1:length(x$phase1.trace),x$phase1.trace,xlab="Phase I iteration",ylab="Observation of expected utility",ylim=c(llim,ulim),type="l",xlim=c(0,length(x$phase1.trace)))
+plot(0:(length(x$phase1.trace)-1),x$phase1.trace,xlab="Phase I iteration",ylab="Observation of expected utility",ylim=c(llim,ulim),type="l",xlim=c(0,length(x$phase1.trace)))
 new_z<-axTicks(side=1)
-new_x<-(1:length(x$phase2.trace))*(length(x$phase1.trace)/length(x$phase2.trace))
-lines(new_x,x$phase2.trace,col=2)
-legend(x="bottomright",legend=c("Phase I","Phase II"),col=c(1,2),lty=c(1,1),bty="n")
-axis(side=3,labels=new_z/(length(x$phase1.trace)/length(x$phase2.trace)),at=new_z)
+new_x<-(1:length(x$phase2.trace))*((length(x$phase1.trace)-1)/length(x$phase2.trace))
+lines(new_x,x$phase2.trace,col=8)
+legend(x="bottomright",legend=c("Phase I","Phase II"),col=c(1,8),lty=c(1,1),bty="n")
+axis(side=3,labels=new_z/((length(x$phase1.trace)-1)/length(x$phase2.trace)),at=new_z)
 mtext("Phase II iteration", side=3, line = par("mgp")[1]) }
 
 if(length(x$phase1.trace)>0 & length(x$phase2.trace)==0){
-plot(1:length(x$phase1.trace),x$phase1.trace,type="l",xlab="Phase I iteration",ylab="Observation of expected utility")
+plot(0:(length(x$phase1.trace)-1),x$phase1.trace,type="l",xlab="Phase I iteration",ylab="Observation of expected utility")
 legend(x="bottomright",legend=c("Phase I"),col=1,lty=1,bty="n") }
 
 if(length(x$phase1.trace)==0 & length(x$phase2.trace)>0){
-plot(1:length(x$phase2.trace),x$phase1.trace,type="l",xlab="Phase II iteration",ylab="Observation of expected utility",col=2)
-legend(x="bottomright",legend=c("Phase II"),col=2,lty=1,bty="n") }
+plot(1:length(x$phase2.trace),x$phase2.trace,type="l",xlab="Phase II iteration",ylab="Observation of expected utility",col=8)
+legend(x="bottomright",legend=c("Phase II"),col=8,lty=1,bty="n") }
 
 }
+
+############ print.ace ############################
 
 print.ace<-function(x,...){
 
@@ -393,8 +1214,12 @@ secs<-ifelse(secs<10,paste("0",secs,sep=""),secs)
 
 if(x$glm==TRUE){
 cat("Generalised Linear Model \n")
-cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")} else{
-cat("User-defined utility \n")}
+cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")} 
+if(x$nlm==TRUE){
+cat("Non Linear Model \n")
+cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")} 
+if(x$nlm==FALSE & x$glm==FALSE){
+cat("User-defined model & utility \n")}
 cat("\n")
 cat("Number of runs = ",dim(x$phase2.d)[1],"\n",sep="")
 cat("\n")
@@ -407,6 +1232,8 @@ cat("\n")
 cat("Computer time = ",paste(hrs,":",mins,":",secs,sep=""),"\n",sep="")
 
 }
+
+############ summary.ace ############################
 
 summary.ace<-function(object,...){
 
@@ -915,5 +1742,229 @@ des<-matrix(des[,-1],nrow=n)
 rownames(des)<-NULL
 des}
 
+################# Quadrature Functions
 
+
+RSquadrature <- function(p, mu, Sigma, Nr, Nq) {
+
+  if(!identical(length(mu), as.integer(p))) stop("length(mu) must equal p")
+  if(!identical(length(Sigma), as.integer(p * p))) stop("Sigma must have size p * p")
+	#generate orthogonal matrices
+	#P<- p+1
+	P<-p
+	Q <- array(dim=c(Nq,P,P))
+
+	for (i in 1:Nq) {
+		ran.mat<-matrix(rnorm(P*P),ncol=P)
+		qr <- qr(ran.mat)
+		Q[i,,]<-qr.Q(qr)
+	}
+
+
+	# compute L, Cholesky root of Sigma
+	# L <- sqrt(Sigma)
+  L <- t(chol(Sigma))
+    
+	# compute simplex + weights
+	simp <-simplex(P)
+	simplex <- simp$simplex
+	w.s <- simp$w.s
+
+	#print(simplex)
+	#print(w.s)
+
+	# compute radial abscissae, store in vector r
+	
+	r <- gaulag(p=P,Nr=Nr,its=1e6,precision=1e-6)
+	w.R <- cassity.weight(r,P)/gamma((P)/2)
+	r <- 2*r
+	#print(r)
+
+	#create arrays to store abscissae and weights, and put values for the zero abscissa
+	a<- matrix(mu,ncol=P)
+	#a[1,P] <<- exp(mu[P])
+
+	w.a <- NULL
+	w.a <- w.R[1]
+
+	# calculate remaining abscissae and weights
+	for (i in 1:Nr) {
+			for (j in 1:((P+1)*(P+2))) {
+				for (k in 1:Nq) {
+					# compute the abscissa in beta-log(sigma^2) space
+					theta <- mu + (r[i+1]^0.5)*L%*%Q[k,,]%*%simplex[j,]
+				
+					# exponentiate log(sigma^2) to put on beta-sigma^2 scale
+					#ONLY FOR GLMM case
+					#theta[P] <- exp(theta[P])
+					a <- rbind(a,t(theta))
+					w.a <- c(w.a,w.R[i+1]*w.s[j]/Nq)
+				}
+			}
+		}
+	return(list(a = a, w = w.a))
+}
+
+
+RSquadrature.uniform <- function(p, limits, Nr, Nq) {
+
+	#generate orthogonal matrices
+	#P<- p+1
+	P<-p
+	Q <- array(dim=c(Nq,P,P))
+
+	for (i in 1:Nq) {
+		ran.mat<-matrix(rnorm(P*P),ncol=P)
+		qr <- qr(ran.mat)
+		Q[i,,]<-qr.Q(qr)
+	}
+
+
+	
+	# compute simplex + weights
+	simp <-simplex(P)
+	simplex <- simp$simplex
+	w.s <- simp$w.s
+
+	#print(simplex)
+	#print(w.s)
+
+	# compute radial abscissae, store in vector r
+	
+	r <- gaulag(p=P,Nr=Nr,its=1e6,precision=1e-6)
+	w.R <- cassity.weight(r,P)/gamma((P)/2)
+	r <- 2*r
+	#print(r)
+
+	d1<-limits[,2]-limits[,1]
+	d2<-limits[,1]
+
+	#create arrays to store abscissae and weights, and put values for the zero abscissa
+	a <- matrix(d1*pnorm(0)+d2,ncol=P)
+	#a[1,P] <<- exp(mu[P])
+
+	w.a <- NULL
+	w.a <- w.R[1]
+
+	# calculate remaining abscissae and weights
+	for (i in 1:Nr) {
+			for (j in 1:((P+1)*(P+2))) {
+				for (k in 1:Nq) {
+					# compute the abscissa in beta-log(sigma^2) space
+					theta <- d1*pnorm((r[i+1]^0.5)*Q[k,,]%*%simplex[j,])+d2
+				
+					# exponentiate log(sigma^2) to put on beta-sigma^2 scale
+					#ONLY FOR GLMM case
+					#theta[P] <- exp(theta[P])
+					a <- rbind(a,t(theta))
+					w.a <- c(w.a,w.R[i+1]*w.s[j]/Nq)
+				}
+			}
+		}
+	return(list(a = a, w = w.a))
+}
+
+
+
+
+simplex <- function(p) {
+	V <- matrix(ncol=p,nrow=p+1)
+	for (i in 1:(p+1))
+	{	
+		for (j in 1:p) {
+			if (j<i) { V[i,j] = -((p+1)/(p*(p-j+2)*(p-j+1)))^0.5 }
+			if (j==i) { V[i,j] = ((p+1)*(p-i+1)/(p*(p-i+2)))^0.5}
+			if (j>i) { V[i,j] = 0 }
+		}
+	}
+
+	# Form midpoints and project onto the sphere
+
+	midpoints <- matrix(ncol=p,nrow=p*(p+1)/2)
+	k<-1
+	for (i in 1:p) {
+		for (j in (i+1):(p+1)) {
+			midpoints[k,] = 0.5*(V[i,]+V[j,])
+			k<-k+1
+		}
+	}
+	proj.pts <- midpoints # gets correct dimensions
+	for (k in 1:(p*(p+1)/2)) 
+	{
+		norm <- (sum(midpoints[k,]^2))^0.5
+		proj.pts[k,] <- midpoints[k,]/norm
+		if(identical(proj.pts[k, ], NaN)) proj.pts[k,] <- 0
+	}
+
+	# Form extended simplex by adding in negative images of these points
+	simplex <- rbind(V,-V,proj.pts,-proj.pts)
+
+	# Compute the simplex weights
+	w.s <- vector(length=(p+1)*(p+2))
+	w.s[1:(2*(p+1))] <- p*(7-p)/(2*(p+1)^2*(p+2))
+	w.s[-(1:(2*(p+1)))] <- 2*((p-1)^2)/(p*(p+1)^2*(p+2))
+	return(list(simplex=simplex,w.s=w.s))
+}
+
+# John's Laguerre poly root finder
+# translated from the C code in Press et al.
+# I have checked this against the latter, TW 20.1.2010.
+
+gaulag<-function(p, Nr, its,precision) 
+{ 
+alpha<-p/2 
+a<-vector() 
+w<-vector() 
+for(i in 1:Nr){ 
+if(i==1){z<-(1+alpha)*(3+0.92*alpha)/(1+2.4*Nr+1.8*alpha)} 
+if(i==2){z<-z+(15+6.25*alpha)/(1+2.4*Nr+1.8*alpha)} 
+if(i>2){ai<-i-2} 
+if(i>2){z<-z+((1+2.55*ai)/(1.9*ai)+1.26*ai*alpha/(1+3.5*ai))*(z-a[i-2])/(1+0.3*alpha)} 
+ 
+for(its in 1:its){ 
+p1<-1;p2<-0 
+for(j in 1:Nr){ 
+p3<-p2;p2<-p1 
+p1<-((2*j-1+alpha-z)*p2-(j-1+alpha)*p3)/j} 
+ 
+pp<-(Nr*p1-(Nr+alpha)*p2)/z 
+z1<-z 
+z<-z1-p1/pp 
+if(abs(z-z1)< precision) break 
+} 
+a[i]<-z 
+} 
+a<-c(0,a) 
+return(a) 
+} 
+#Evaluates the laguerre polynomial with parameters n and s at the value a.  
+laguerre<-function(a,n,s) 
+{ 
+laguerre.matrix<-matrix(nrow=length(a), ncol=n+1) 
+laguerre.vector<-vector(length=length(a)) 
+#Loops up the recurrence relation 
+for(j in 1:length(a)){ 
+for(i in 0:n){ 
+laguerre.matrix[j,i+1]<-factorial(n)*choose(n+s, n-i)*(-a[j])^i/factorial(i) 
+
+
+} 
+laguerre.vector[j]<-sum(laguerre.matrix[j,]) 
+} 
+return(laguerre.vector) 
+} 
+ 
+#Reproduces the weights formula given by Cassity(1965). But takes 
+#the number of parameters as input to make it easier for the function user. 
+cassity.weight<-function(a,p) 
+{ 
+n<-length(a);s<-p/2-1 
+constant<-gamma(n)*gamma(n+s)/(n+s) 
+weight<-constant/(laguerre(a,n-1,s)^2) 
+weight[1]<-weight[1]*(1+s)#as described by cassity et al 'incorporate factor 1+s 
+					# TW: Yeah, I find that sentence a bit confusing. 
+					# but multiplying by 1+s here gives us the right answers 
+					# (checking against the tables...)
+return(weight) 
+}
 

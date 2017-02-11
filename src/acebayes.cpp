@@ -4,6 +4,774 @@ using namespace Rcpp;
 
 // NEW FUNCTION ///////////////////////////////////////////////////////////////////////////////////////////////////////////////;
 
+RcppExport SEXP nselprcpp(SEXP y, SEXP x, SEXP sam, SEXP frho, SEXP yfrac) {
+
+Rcpp::NumericMatrix yr(y);
+Rcpp::NumericMatrix xr(x);
+Rcpp::NumericMatrix samr(sam);
+Rcpp::NumericVector frhor(frho);
+Rcpp::NumericVector yfracr(yfrac);
+
+int B = samr.nrow(), p = xr.ncol(), n = xr.nrow();
+
+arma::mat Y(yr.begin(), B, n, false);  
+arma::mat X(xr.begin(), n, p, false);  
+arma::mat SAM(samr.begin(), B, p, false);  
+arma::vec a(frhor.begin(), B, false);  
+arma::vec b(yfracr.begin(), B, false);  
+
+arma::mat SAMt = SAM.t();
+
+arma::mat suff = X.t()*Y.t();
+arma::mat out = arma::zeros(p,B);
+double temp;
+double LL;
+
+for (int i=0; i<B; i++) {
+
+LL = 0;
+for (int j=0; j<B; j++) {
+temp = dot(suff.unsafe_col(i),SAMt.unsafe_col(j));
+temp -= b.at(i);
+temp -= a.at(j);
+temp = exp(temp);
+LL += temp;
+out.unsafe_col(i) += temp*SAMt.unsafe_col(j);}
+out.unsafe_col(i) /= LL;}
+
+return as<NumericMatrix>(wrap(out.t()));
+}
+
+
+
+// NEW FUNCTION /////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
+RcppExport SEXP PRLAP2cpp(SEXP y, SEXP sam, SEXP X, SEXP pm, SEXP pv) {
+
+Rcpp::NumericMatrix yr(y);
+Rcpp::NumericMatrix samr(sam);
+Rcpp::NumericMatrix Xr(X);
+Rcpp::NumericVector pmr(pm);
+Rcpp::NumericVector pvr(pv);
+
+int n = Xr.nrow();
+int k = Xr.ncol();
+int B = yr.nrow();
+
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat BETA(samr.begin(), B, k, false);
+arma::mat x(Xr.begin(), n, k, false);
+arma::vec PM(pmr.begin(), k, false);
+arma::vec PV(pvr.begin(), k, false);
+
+arma::mat BETAT = BETA.t();
+
+double eps;
+eps = 0.0001;
+
+double scale;
+scale = 0.25;
+
+arma::mat xt = x.t();
+arma::mat Yt = Y.t();
+
+arma::vec iPV = 1/PV;
+arma::vec miPV = -1/PV;
+arma::mat invV = arma::zeros(k,k);
+for (int j=0; j<k; j++) {
+invV(j,j) = iPV(j);}
+
+arma::vec beta(k);
+arma::vec eta(n);
+arma::vec mu(n);
+arma::mat XWX(k,k);
+
+arma::vec temp1(n);
+arma::vec temp2(k);
+arma::mat Sigma(k,k);
+double crit;
+int counter;
+double dett;
+
+double cons;
+cons =  sum(log(PV));
+cons *= 0.5;
+arma::vec out(B);
+out.fill(cons);
+
+for (int i=0; i<B; i++) {
+
+beta = PM;
+crit = eps+1;
+counter = 0;
+while ((crit>eps)&(counter<50)) {
+
+eta = x*beta;
+mu = exp(eta);
+XWX.zeros();
+for (int ii=0; ii<k; ii++) {
+for (int jj=ii; jj<k; jj++) {
+for (int kk=0; kk<n; kk++) {
+XWX.at(ii,jj) += mu.at(kk)*x.at(kk,ii)*x.at(kk,jj);}
+XWX.at(jj,ii) = XWX.at(ii,jj);}}
+
+for (int ii=0; ii<k; ii++) {
+XWX.at(ii,ii) += iPV.at(ii);}
+
+XWX = inv_sympd(XWX);
+
+temp2 = beta;
+temp2 -= PM;
+temp2 %= miPV;
+
+temp1 = Yt.unsafe_col(i);
+temp1 -= mu;
+temp2 += xt*temp1;
+
+temp2 = XWX*temp2;
+
+beta += scale*temp2;
+counter += 1;
+crit = dot(temp2,temp2);}
+
+eta = x*BETAT.col(i);
+out(i) += dot(Y.row(i),eta);
+eta = exp(eta);
+out(i) -= sum(eta);
+
+eta = x*beta;
+out(i) -= dot(Y.row(i),eta);
+eta = exp(eta);
+out(i) += sum(eta);
+
+beta -= PM;
+beta %= beta;
+beta %= iPV;
+out(i) += 0.5*sum(beta);
+log_det(dett,crit,XWX);
+out(i) -= 0.5*dett;
+
+}
+
+return as<NumericVector>(wrap(out));
+
+}
+
+// NEW FUNCTION /////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
+RcppExport SEXP PRNSELLAP2cpp(SEXP y, SEXP sam, SEXP X, SEXP pm, SEXP pv) {
+
+Rcpp::NumericMatrix yr(y);
+Rcpp::NumericMatrix samr(sam);
+Rcpp::NumericMatrix Xr(X);
+Rcpp::NumericVector pmr(pm);
+Rcpp::NumericVector pvr(pv);
+
+int n = Xr.nrow();
+int k = Xr.ncol();
+int B = yr.nrow();
+
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat BETA(samr.begin(), B, k, false);
+arma::mat x(Xr.begin(), n, k, false);
+arma::vec PM(pmr.begin(), k, false);
+arma::vec PV(pvr.begin(), k, false);
+
+arma::mat BETAT = BETA.t();
+
+double eps;
+eps = 0.0001;
+
+double scale;
+scale = 0.25;
+
+arma::mat xt = x.t();
+arma::mat Yt = Y.t();
+
+arma::vec iPV = 1/PV;
+arma::vec miPV = -1/PV;
+arma::mat invV = arma::zeros(k,k);
+for (int j=0; j<k; j++) {
+invV(j,j) = iPV(j);}
+
+arma::vec beta(k);
+arma::vec eta(n);
+arma::vec mu(n);
+arma::mat XWX(k,k);
+
+arma::vec temp1(n);
+arma::vec temp2(k);
+double crit;
+int counter;
+
+arma::vec out = arma::zeros(B);
+
+for (int i=0; i<B; i++) {
+
+beta = PM;
+crit = eps+1;
+counter = 0;
+while ((crit>eps)&(counter<50)) {
+
+eta = x*beta;
+mu = exp(eta);
+XWX.zeros();
+for (int ii=0; ii<k; ii++) {
+for (int jj=ii; jj<k; jj++) {
+for (int kk=0; kk<n; kk++) {
+XWX.at(ii,jj) += mu.at(kk)*x.at(kk,ii)*x.at(kk,jj);}
+XWX.at(jj,ii) = XWX.at(ii,jj);}}
+
+for (int ii=0; ii<k; ii++) {
+XWX.at(ii,ii) += iPV.at(ii);}
+
+XWX = inv_sympd(XWX);
+
+temp2 = beta;
+temp2 -= PM;
+temp2 %= miPV;
+
+temp1 = Yt.unsafe_col(i);
+temp1 -= mu;
+temp2 += xt*temp1;
+
+temp2 = XWX*temp2;
+
+beta += scale*temp2;
+counter += 1;
+crit = dot(temp2,temp2);}
+
+beta -= BETAT.col(i);
+beta %= beta;
+
+for (int ii=0; ii<k; ii++) {
+out.at(i) -= beta.at(ii);}
+
+}
+
+return as<NumericVector>(wrap(out));
+
+}
+
+// NEW FUNCTION ///////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
+RcppExport SEXP sigprcpp(SEXP y, SEXP x, SEXP sam, SEXP frho, SEXP yfrac) {
+
+Rcpp::NumericMatrix yr(y);
+Rcpp::NumericMatrix xr(x);
+Rcpp::NumericMatrix samr(sam);
+Rcpp::NumericVector frhor(frho);
+Rcpp::NumericVector yfracr(yfrac);
+
+int B = samr.nrow(), p = xr.ncol(), n = xr.nrow();
+
+arma::mat Y(yr.begin(), B, n, false);  
+arma::mat X(xr.begin(), n, p, false);  
+arma::mat SAM(samr.begin(), B, p, false);  
+arma::vec a(frhor.begin(), B, false);  
+arma::vec b(yfracr.begin(), B, false);  
+
+arma::mat SAMt = SAM.t();
+
+arma::mat suff = X.t()*Y.t();
+arma::vec out = arma::zeros(B);
+double temp;
+
+for (int i=0; i<B; i++) {
+
+for (int j=0; j<B; j++) {
+temp = dot(suff.unsafe_col(i),SAMt.unsafe_col(j));
+temp -= b.at(i);
+temp -= a.at(j);
+out.at(i) += exp(temp);}}
+
+out /= B;
+
+out = log(out);
+
+return as<NumericVector>(wrap(out));
+}
+
+
+// NEW FUNCTION /////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
+RcppExport SEXP LRNSELLAP2cpp(SEXP y, SEXP sam, SEXP X, SEXP pm, SEXP pv) {
+
+Rcpp::NumericMatrix yr(y);
+Rcpp::NumericMatrix samr(sam);
+Rcpp::NumericMatrix Xr(X);
+Rcpp::NumericVector pmr(pm);
+Rcpp::NumericVector pvr(pv);
+
+int n = Xr.nrow();
+int k = Xr.ncol();
+int B = yr.nrow();
+
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat BETA(samr.begin(), B, k, false);
+arma::mat x(Xr.begin(), n, k, false);
+arma::vec PM(pmr.begin(), k, false);
+arma::vec PV(pvr.begin(), k, false);
+
+arma::mat BETAT = BETA.t();
+
+double eps;
+eps = 0.0001;
+
+double scale;
+scale = 0.25;
+
+arma::mat xt = x.t();
+arma::mat Yt = Y.t();
+
+arma::vec iPV = 1/PV;
+arma::vec miPV = -1/PV;
+arma::mat invV = arma::zeros(k,k);
+for (int j=0; j<k; j++) {
+invV(j,j) = iPV(j);}
+
+arma::vec beta(k);
+arma::vec eta(n);
+arma::vec prob(n);
+arma::vec W(n);
+arma::mat XWX(k,k);
+
+arma::vec temp1(n);
+arma::vec temp2(k);
+//arma::mat Sigma(k,k);
+double crit;
+int counter;
+//double dett;
+
+arma::vec out = arma::zeros(B);
+
+for (int i=0; i<B; i++) {
+
+beta = PM;
+crit = eps+1;
+counter = 0;
+while ((crit>eps)&(counter<50)) {
+
+eta = x*beta;
+prob = exp(-eta);
+prob += 1;
+prob = 1/prob;
+W = 1 - prob;
+W %= prob;
+XWX.zeros();
+for (int ii=0; ii<k; ii++) {
+for (int jj=ii; jj<k; jj++) {
+for (int kk=0; kk<n; kk++) {
+XWX.at(ii,jj) += W.at(kk)*x.at(kk,ii)*x.at(kk,jj);}
+XWX.at(jj,ii) = XWX.at(ii,jj);}}
+
+for (int ii=0; ii<k; ii++) {
+XWX.at(ii,ii) += iPV.at(ii);}
+
+XWX = inv_sympd(XWX);
+
+temp2 = beta;
+temp2 -= PM;
+temp2 %= miPV;
+
+temp1 = Yt.unsafe_col(i);
+temp1 -= prob;
+temp2 += xt*temp1;
+
+temp2 = XWX*temp2;
+
+beta += scale*temp2;
+counter += 1;
+crit = dot(temp2,temp2);}
+
+beta -= BETAT.col(i);
+beta %= beta;
+
+for (int ii=0; ii<k; ii++) {
+out.at(i) -= beta.at(ii);}
+
+}
+
+return as<NumericVector>(wrap(out));
+
+}
+
+// NEW FUNCTION /////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
+RcppExport SEXP LRLAP2cpp(SEXP y, SEXP sam, SEXP X, SEXP pm, SEXP pv) {
+
+Rcpp::NumericMatrix yr(y);
+Rcpp::NumericMatrix samr(sam);
+Rcpp::NumericMatrix Xr(X);
+Rcpp::NumericVector pmr(pm);
+Rcpp::NumericVector pvr(pv);
+
+int n = Xr.nrow();
+int k = Xr.ncol();
+int B = yr.nrow();
+
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat BETA(samr.begin(), B, k, false);
+arma::mat x(Xr.begin(), n, k, false);
+arma::vec PM(pmr.begin(), k, false);
+arma::vec PV(pvr.begin(), k, false);
+
+arma::mat BETAT = BETA.t();
+
+double eps;
+eps = 0.0001;
+
+double scale;
+scale = 0.25;
+
+arma::mat xt = x.t();
+arma::mat Yt = Y.t();
+
+arma::vec iPV = 1/PV;
+arma::vec miPV = -1/PV;
+arma::mat invV = arma::zeros(k,k);
+for (int j=0; j<k; j++) {
+invV(j,j) = iPV(j);}
+
+arma::vec beta(k);
+arma::vec eta(n);
+arma::vec prob(n);
+arma::vec W(n);
+arma::mat XWX(k,k);
+
+arma::vec temp1(n);
+arma::vec temp2(k);
+arma::mat Sigma(k,k);
+double crit;
+int counter;
+double dett;
+
+double cons;
+cons =  sum(log(PV));
+cons *= 0.5;
+arma::vec out(B);
+out.fill(cons);
+
+for (int i=0; i<B; i++) {
+
+beta = PM;
+crit = eps+1;
+counter = 0;
+while ((crit>eps)&(counter<50)) {
+
+eta = x*beta;
+prob = exp(-eta);
+prob += 1;
+prob = 1/prob;
+W = 1 - prob;
+W %= prob;
+XWX.zeros();
+for (int ii=0; ii<k; ii++) {
+for (int jj=ii; jj<k; jj++) {
+for (int kk=0; kk<n; kk++) {
+XWX.at(ii,jj) += W.at(kk)*x.at(kk,ii)*x.at(kk,jj);}
+XWX.at(jj,ii) = XWX.at(ii,jj);}}
+
+for (int ii=0; ii<k; ii++) {
+XWX.at(ii,ii) += iPV.at(ii);}
+
+XWX = inv_sympd(XWX);
+
+temp2 = beta;
+temp2 -= PM;
+temp2 %= miPV;
+
+temp1 = Yt.unsafe_col(i);
+temp1 -= prob;
+temp2 += xt*temp1;
+
+temp2 = XWX*temp2;
+
+beta += scale*temp2;
+counter += 1;
+crit = dot(temp2,temp2);}
+
+eta = x*BETAT.col(i);
+out(i) += dot(Y.row(i),eta);
+eta = exp(eta);
+eta += 1;
+eta = log(eta);
+out(i) -= sum(eta);
+
+eta = x*beta;
+out(i) -= dot(Y.row(i),eta);
+eta = exp(eta);
+eta += 1;
+eta = log(eta);
+out(i) += sum(eta);
+
+beta -= PM;
+beta %= beta;
+beta %= iPV;
+out(i) += 0.5*sum(beta);
+log_det(dett,crit,XWX);
+out(i) -= 0.5*dett;
+
+}
+
+return as<NumericVector>(wrap(out));
+
+}
+
+
+
+// NEW FUNCTION /////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
+RcppExport SEXP Enlmcpp(SEXP jac, SEXP dims) {
+
+Rcpp::NumericMatrix jacr(jac);
+Rcpp::NumericVector dimsr(dims);
+
+int p = jacr.ncol();
+int r = jacr.nrow();
+
+arma::mat JAC(jacr.begin(), r, p, false);
+arma::vec dimsrr(dimsr.begin(), 2, false);
+
+arma::uvec DIMS = arma::conv_to<arma::uvec>::from(dimsrr);
+int n = DIMS(0);
+int B = DIMS(1);
+
+int nm = n - 1;
+int F;
+int L;
+
+arma::vec out = arma::zeros(B);
+arma::mat J = arma::zeros(n,p);
+arma::mat FIM = arma::zeros(p,p);
+arma::vec eigs = arma::zeros(p);
+
+for (int i=0; i<B; i++) {
+
+F = i*n;
+L = F + nm;
+J = JAC.rows(F,L);
+FIM = J.t()*J;
+
+eig_sym(eigs,FIM);
+
+out.at(i) = eigs.min();
+
+}
+
+return as<NumericVector>(wrap(out));
+
+}
+
+// NEW FUNCTION /////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
+RcppExport SEXP Anlmcpp(SEXP jac, SEXP dims) {
+
+Rcpp::NumericMatrix jacr(jac);
+Rcpp::NumericVector dimsr(dims);
+
+int p = jacr.ncol();
+int r = jacr.nrow();
+
+arma::mat JAC(jacr.begin(), r, p, false);
+arma::vec dimsrr(dimsr.begin(), 2, false);
+
+arma::uvec DIMS = arma::conv_to<arma::uvec>::from(dimsrr);
+int n = DIMS(0);
+int B = DIMS(1);
+
+int nm = n - 1;
+int F;
+int L;
+
+arma::vec out = arma::zeros(B);
+arma::mat J = arma::zeros(n,p);
+arma::mat FIM = arma::zeros(p,p);
+
+for (int i=0; i<B; i++) {
+
+F = i*n;
+L = F + nm;
+J = JAC.rows(F,L);
+FIM = J.t()*J;
+FIM = inv_sympd(FIM);
+
+for (int j=0; j<p; j++) {
+out.at(i) -= FIM.at(j,j);}
+
+}
+
+return as<NumericVector>(wrap(out));
+
+}
+
+// NEW FUNCTION /////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
+RcppExport SEXP Dnlmcpp(SEXP jac, SEXP dims) {
+
+Rcpp::NumericMatrix jacr(jac);
+Rcpp::NumericVector dimsr(dims);
+
+int p = jacr.ncol();
+int r = jacr.nrow();
+
+arma::mat JAC(jacr.begin(), r, p, false);
+arma::vec dimsrr(dimsr.begin(), 2, false);
+
+arma::uvec DIMS = arma::conv_to<arma::uvec>::from(dimsrr);
+int n = DIMS(0);
+int B = DIMS(1);
+
+int nm = n - 1;
+int F;
+int L;
+
+arma::vec out = arma::zeros(B);
+arma::mat J = arma::zeros(n,p);
+arma::mat FIM = arma::zeros(p,p);
+double temp;
+
+for (int i=0; i<B; i++) {
+
+F = i*n;
+L = F + nm;
+J = JAC.rows(F,L);
+FIM.zeros();
+for (int j1=0; j1<p; j1++) {
+for (int j2=j1; j2<p; j2++) {
+FIM.at(j1,j2) = dot(J.col(j1),J.col(j2));}}
+FIM = symmatu(FIM);
+
+log_det(out(i),temp,FIM);}
+
+return as<NumericVector>(wrap(out));
+
+}
+
+
+// NEW FUNCTION /////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
+RcppExport SEXP SIGnlmcpp(SEXP y, SEXP mu1, SEXP mu2, SEXP sig1, SEXP sig2) {
+
+Rcpp::NumericMatrix yr(y);
+Rcpp::NumericMatrix mu1r(mu1);
+Rcpp::NumericMatrix mu2r(mu2);
+Rcpp::NumericVector sig1r(sig1);
+Rcpp::NumericVector sig2r(sig2);
+
+int B = mu2r.nrow();
+int n = mu2r.ncol();
+
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat MU1(mu1r.begin(), B, n, false); 
+arma::mat MU2(mu2r.begin(), B, n, false);
+arma::vec SIG1(sig1r.begin(), B, false);
+arma::vec SIG2(sig2r.begin(), B, false);
+
+arma::vec iSIG1 = -0.5/SIG1;
+arma::vec iSIG2 = -0.5/SIG2;
+arma::vec LSIG1 = -0.5*n*log(SIG1);
+arma::vec LSIG2 = -0.5*n*log(SIG2);
+
+arma::mat Yt = Y.t();
+arma::mat MU1t = MU1.t();
+arma::mat MU2t = MU2.t();
+
+arma::vec diff(n);
+double temp;
+double LL;
+arma::vec yi(n);
+
+arma::vec out = arma::zeros(B);
+for (int i=0; i<B; i++) {
+
+yi = Yt.unsafe_col(i);
+diff = yi;
+diff -= MU1t.unsafe_col(i);
+out(i) += dot(diff,diff);
+out(i) *= iSIG1.at(i);
+out(i) += LSIG1.at(i);
+
+LL = 0;
+for (int j=0; j<B; j++) {
+diff = yi;
+diff -= MU2t.unsafe_col(j);
+temp = dot(diff,diff);
+temp *= iSIG2.at(j);
+temp += LSIG2.at(j);
+temp = exp(temp);
+LL += temp;}
+LL /= B;
+
+out.at(i) -= log(LL);}
+
+return as<NumericVector>(wrap(out));
+
+}
+
+// NEW FUNCTION /////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
+RcppExport SEXP NSELnlmcpp(SEXP y, SEXP mu2, SEXP sig2, SEXP theta1, SEXP theta2) {
+
+Rcpp::NumericMatrix yr(y);
+Rcpp::NumericMatrix mu2r(mu2);
+Rcpp::NumericVector sig2r(sig2);
+Rcpp::NumericMatrix theta1r(theta1);
+Rcpp::NumericMatrix theta2r(theta2);
+
+int B = mu2r.nrow();
+int n = mu2r.ncol();
+int p = theta1r.ncol();
+
+arma::mat Y(yr.begin(), B, n, false); 
+arma::mat MU2(mu2r.begin(), B, n, false);
+arma::vec SIG2(sig2r.begin(), B, false);
+arma::mat THETA1(theta1r.begin(), B, p, false); 
+arma::mat THETA2(theta2r.begin(), B, p, false);
+
+arma::vec iSIG2 = -0.5/SIG2;
+arma::vec LSIG2 = -0.5*n*log(SIG2);
+
+arma::mat Yt = Y.t();
+arma::mat MU2t = MU2.t();
+arma::mat THETA1t = THETA1.t();
+arma::mat THETA2t = THETA2.t();
+
+arma::vec diff(n);
+double temp;
+double LL;
+arma::vec yi(n);
+arma::vec dcr = arma::zeros(p);
+
+arma::vec out = arma::zeros(B);
+for (int i=0; i<B; i++) {
+
+yi = Yt.unsafe_col(i);
+
+LL = 0;
+dcr.zeros();
+for (int j=0; j<B; j++) {
+diff = yi;
+diff -= MU2t.unsafe_col(j);
+temp = dot(diff,diff);
+temp *= iSIG2.at(j);
+temp += LSIG2.at(j);
+temp = exp(temp);
+dcr += temp*THETA2t.unsafe_col(j);
+LL += temp;}
+
+dcr /= LL;
+
+dcr -= THETA1t.unsafe_col(i);
+
+out.at(i) -= dot(dcr,dcr);}
+
+return as<NumericVector>(wrap(out));
+
+}
+
+// NEW FUNCTION ///////////////////////////////////////////////////////////////////////////////////////////////////////////////;
+
 RcppExport SEXP LRDcpp(SEXP x, SEXP beta) {
 
 Rcpp::NumericMatrix xr(x);

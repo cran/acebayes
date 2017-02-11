@@ -1,9 +1,11 @@
 useDynLib(acebayes)
 import(lhs)
+importFrom(compare, compare)
 importFrom(Rcpp, evalCpp)
 exportPattern("^[[:alpha:]]+")
 S3method(plot, ace)
 S3method(print, ace)
 S3method(summary, ace)
-importFrom("graphics", "axTicks", "axis", "legend", "lines", "mtext","par", "plot")
-importFrom("stats", "dbinom", "dnorm", "model.matrix", "pbeta","pnorm", "pt", "qbeta", "rbeta", "rbinom", "rnorm", "rpois","runif", "sd")
+importFrom("graphics", "axTicks", "axis", "legend", "lines", "mtext", "par", "plot")
+importFrom("stats", "dbinom", "dnorm", "model.matrix", "pbeta", "pnorm", "pt", "qbeta", "rbeta", "rbinom", "rnorm", "rpois", "runif", "sd", "deriv", "var", "dpois", "terms", "weighted.mean")
+

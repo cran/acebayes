@@ -1,16 +1,16 @@
 Package: acebayes
 Type: Package
 Title: Optimal Bayesian Experimental Design using the ACE Algorithm
-Version: 1.2
-Date: 2016-08-04
-Author: Antony M. Overstall & David C. Woods
-Maintainer: Antony M. Overstall <Antony.Overstall@glasgow.ac.uk>
+Version: 1.3.4
+Date: 2017-02-09
+Author: Antony M. Overstall, David C. Woods & Maria Adamou
+Maintainer: Antony M. Overstall <A.M.Overstall@soton.ac.uk>
 Description: Optimal Bayesian experimental design using the approximate coordinate exchange (ACE) algorithm.
 License: GPL-2
 Depends: R (>= 3.0.2), lhs
-Imports: Rcpp (>= 0.12.2)
+Imports: Rcpp (>= 0.12.2), compare
 LinkingTo: Rcpp, RcppArmadillo (>= 0.6.400.2.2)
 NeedsCompilation: yes
-Packaged: 2016-08-04 15:31:54 UTC; antony
+Packaged: 2017-02-09 16:48:02 UTC; amo105
 Repository: CRAN
-Date/Publication: 2016-08-04 21:51:40
+Date/Publication: 2017-02-11 04:33:10

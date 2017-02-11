@@ -1,4 +1,9 @@
 \name{acebayes-internal}
+\alias{distmat}
+\alias{pval}
+\alias{GPpred}
+\alias{noisyexpectutil}
+\alias{FisherScoring2D}
 \alias{lrlin}
 \alias{lrquad}
 \alias{colin}
@@ -25,8 +30,14 @@
 \alias{HLRSIGoptdesign}
 \alias{HLRBAAoptdesign}
 \alias{HLRNSELoptdesign}
-
+\alias{utilglm}
+\alias{RSquadrature}
+\alias{RSquadrature.uniform}
+\alias{simplex}
+\alias{gaulag}
+\alias{cassity.weight}
 \alias{beetleoptdesign}
+\alias{laguerre}
 \title{
 Internal Objects for \code{acebayes}
 }

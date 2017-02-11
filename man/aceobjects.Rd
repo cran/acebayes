@@ -28,24 +28,24 @@ Arguments to be passed to and from other methods.
 \value{
 These functions both provide a print out with the following information.
 
-If the object is a result of a direct call to \code{\link{aceglm}}, then the pesudo-Bayesian criterion will be printed, otherwise the statment \code{User-defined utility} will be printed.
+If the object is a result of a direct call to \code{\link{aceglm}} or \code{\link{acenlm}}, then the argument \code{criterion} will be printed, otherwise the statement \code{User-defined utility} will be printed.
 
 Also printed are the number of runs, factors, Phase I and II iterations of the ACE algorithm and the computational time required.
 
-For more details on the ACE algorithm, see Overstall & Woods (2015).
+For more details on the ACE algorithm, see Overstall & Woods (2017).
 }
 
 \references{
-Overstall, A.M. & Woods, D.C. (2015). Bayesian Design of Experiments using
-Approximate Coordinate Exchange. \emph{arXiv:1501.00264}.
+Overstall, A.M. & Woods, D.C. (2016). Bayesian design of experiments using
+approximate coordinate exchange. \emph{Technometrics}, in press. (\emph{arXiv:1501.00264}).
 }
 
 \author{
-Antony M. Overstall (\email{Antony.Overstall@glasgow.ac.uk}) & David C. Woods.
+Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Adamou
 }
 
-\note{For examples see \code{\link{ace}} and \code{\link{aceglm}}.}
+\note{For examples see \code{\link{ace}}, \code{\link{aceglm}}, and \code{\link{acenlm}}.}
 
 \seealso{
-\code{\link{ace}}, \code{\link{aceglm}}.
+\code{\link{ace}}, \code{\link{aceglm}}, \code{\link{acenlm}}.
 }
