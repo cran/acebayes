@@ -1,3 +1,137 @@
+############ effglm ############################
+
+effglm<-function(d1, d2, B, formula = NULL, family = NULL, prior = NULL, criterion = c("D", "A", "E"), method = c("quadrature", "MC")){
+  
+  if(identical(class(d1), "ace")) {
+    if(!identical(criterion, d1$criterion) && identical(length(criterion), as.integer(1))) 
+      warning(paste("Criterion from ace object d1 does not match the argument criterion: criterion \"", d1$criterion,"\" being used", sep = ""), 
+              immediate. = T)
+    criterion = d1$criterion
+    if(!identical(method, d1$method) && identical(length(method), as.integer(1))) 
+      warning(paste("Method from ace object d1 does not match the argument method: method \"", d1$method,"\" being used", sep = ""), 
+              immediate. = T)
+    method = d1$method
+    if(!identical(formula, d1$formula) && !is.null(formula)) 
+      warning(paste("Formula from ace object d1 does not match the argument formula: formula from d1 being used", sep = ""), 
+              immediate. = T)
+    if(!identical(family, d1$family) && !is.null(family)) 
+      warning(paste("Family from ace object d1 does not match the argument family: family from d1 being used", sep = ""), 
+              immediate. = T)
+    if(!identical(prior, d1$prior) && !is.null(prior)) 
+      warning(paste("Prior from ace object d1 does not match the argument prior: prior from d1 being used", sep = ""), 
+              immediate. = T)
+  } else {
+    criterion <- match.arg(criterion)
+    method <- match.arg(method)
+  }
+  
+  if(!(criterion %in% c("D", "A", "E"))) stop("Argument criterion has to be one of A, D or E")
+  if(!(method %in% c("quadrature", "MC"))) stop("Argument method has to be one of quadrature or MC")
+  
+  
+  if(missing(B)) {
+    B <- switch(method,
+                MC = 1000,
+                quadrature = c(2, 8))
+  }
+  
+  if(identical(class(d1), "ace")) {
+    U <- function(d) d1$utility(d = d, B = B)
+    U1 <- mean(U(d1$phase2.d))
+    p <- ncol(model.matrix(object = d1$formula, data = data.frame(d1$phase2.d)))
+    d1a <- d1$phase2.d
+  } else if (identical(class(d1), "matrix")) {
+    if(identical(formula, NULL) || identical(family, NULL) || identical(prior, NULL)) 
+      stop("If d1 is not an object of class ace, formula, family and prior cannot be NULL")
+    RU <- utilityglm(formula=formula, family=family, prior=prior, criterion=criterion, method=method, nrq = B)
+    U <- function(d) RU$utility(d = d, B = B)
+    U1 <- mean(U(d1))
+    p <- ncol(model.matrix(object = formula, data = data.frame(d1)))
+    d1a <- d1
+  } else stop("Argument d1 must be an object of class ace or matrix")
+  
+  if(identical(class(d2), "ace")) {  
+    d2a <- d2$phase2.d
+  } else if(identical(class(d2), "matrix")) {  
+      d2a <- d2
+  } else stop("Argument d2 must be an object of class ace or matrix")
+  if(!identical(dim(d1a)[2], dim(d2a)[2])) stop("d1 and d2 must specify two designs with the same number of variables")
+  
+  U2 <- mean(U(d2a))
+  
+  switch(EXPR=criterion,
+                D = 100 * exp((U1 - U2) / p),
+                E = 100 * U1 / U2,
+                100 * U2/U1)
+}
+
+############ effnlm ############################
+
+effnlm<-function(d1, d2, B, formula = NULL, prior = NULL, criterion = c("D", "A", "E"), method = c("quadrature", "MC")){
+  
+  if(identical(class(d1), "ace")) {
+    if(!identical(criterion, d1$criterion) && identical(length(criterion), as.integer(1))) 
+      warning(paste("Criterion from ace object d1 does not match the argument criterion: criterion \"", d1$criterion,"\" being used", sep = ""), 
+              immediate. = T)
+    criterion = d1$criterion
+    if(!identical(method, d1$method) && identical(length(method), as.integer(1))) 
+      warning(paste("Method from ace object d1 does not match the argument method: method \"", d1$method,"\" being used", sep = ""), 
+              immediate. = T)
+    method = d1$method
+    if(!identical(formula, d1$formula) && !is.null(formula)) 
+      warning(paste("Formula from ace object d1 does not match the argument formula: formula from d1 being used", sep = ""), 
+              immediate. = T)
+    if(!identical(prior, d1$prior) && !is.null(prior)) 
+      warning(paste("Prior from ace object d1 does not match the argument prior: prior from d1 being used", sep = ""), 
+              immediate. = T)
+  } else {
+    criterion <- match.arg(criterion)
+    method <- match.arg(method)
+  }
+    
+  if(!(criterion %in% c("D", "A", "E"))) stop("Argument criterion has to be one of A, D or E")
+  if(!(method %in% c("quadrature", "MC"))) stop("Argument method has to be one of quadrature or MC")
+  
+  
+  if(missing(B)) {
+    B <- switch(method,
+                MC = 1000,
+                quadrature = c(2, 8))
+  }
+  
+  if(identical(class(d1), "ace")) {
+    U <- function(d) d1$utility(d = d, B = B)
+    U1 <- mean(U(d1$phase2.d))
+    p <- length(setdiff(all.vars(d1$formula), dimnames(d1$phase2.d)[[2]]))
+    d1a <- d1$phase2.d
+  } else if (identical(class(d1), "matrix")) {
+    if(identical(formula, NULL) || identical(prior, NULL)) 
+      stop("If d1 is not an object of class ace, formula and prior cannot be NULL")
+    if(is.null(dimnames(d1)[[2]])) stop("d1 must have column names")
+    RU <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(d1)[[2]], 
+                     criterion = criterion, method = method, nrq = B)
+    U<-function(d) RU$utility(d = d, B = B)
+    U1<-mean(U(d1))
+    p <- length(setdiff(all.vars(formula), dimnames(d1)[[2]]))
+    d1a <- d1
+  } else stop("Argument d1 must be an object of class ace or matrix")
+  
+  if(identical(class(d2), "ace")) {  
+    d2a<-d2$phase2.d
+    } else if(identical(class(d2), "matrix")) {  
+      d2a <- d2
+    } else stop("Argument d2 must be an object of class ace or matrix")
+  if(!identical(dim(d1a)[2], dim(d2a)[2])) stop("d1 and d2 must specify two designs with the same number of variables")
+  
+  U2 <- mean(U(d2a))
+  
+  switch(EXPR=criterion,
+         D = 100 * exp((U1 - U2) / p),
+         E = 100 * U1 / U2,
+         100 * U2/U1)
+}
+
+
 ############ utilityglm ############################
 
 utilityglm <- function (formula, family, prior, criterion = c("D", "A", "E", "SIG", "NSEL", "SIG-Norm", "NSEL-Norm"), 
@@ -47,12 +181,12 @@ utilityglm <- function (formula, family, prior, criterion = c("D", "A", "E", "SI
         quad <- RSquadrature(no.terms, qmu, qsigma2, nr, nq)
         abscissas <- as.matrix(quad$a)
         weights <- quad$w
-      } else if(identical(names(prior)[1], "limits")) {
-        if(!identical(dim(t(prior$limits)), as.integer(c(no.terms, 2)))) {
+      } else if(identical(names(prior)[1], "support")) {
+        if(!identical(dim(t(prior$support)), as.integer(c(no.terms, 2)))) {
           stop("Uniform prior: the prior support must be specified as a 
                matrix with dimension c(2, number of terms); see help file ")
         }
-        quad <- RSquadrature.uniform(no.terms, t(prior$limits), nr, nq)
+        quad <- RSquadrature.uniform(no.terms, t(prior$support), nr, nq)
         abscissas <- as.matrix(quad$a)
         weights <- quad$w
         } else {
@@ -432,17 +566,17 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
         abscissas <- as.matrix(quad$a)
         colnames(abscissas) <- names(prior$mu)
         weights <- quad$w
-      } else if(identical(names(prior)[1], "limits")) {
-        if(!identical(dim(t(prior$limits)), as.integer(c(no.terms, 2)))) {
+      } else if(identical(names(prior)[1], "support")) {
+        if(!identical(dim(t(prior$support)), as.integer(c(no.terms, 2)))) {
           stop("Uniform prior: the prior support must be specified as a 
                matrix with dimension c(2, number of terms); see help file ")
         }
-        if(!identical(TRUE, compare(paravars, colnames(prior$limits), ignoreOrder = TRUE)$result)) {
-          stop("Uniform prior: the column names attribute for limits must correspond to the named parameters in the model formula.")
+        if(!identical(TRUE, compare(paravars, colnames(prior$support), ignoreOrder = TRUE)$result)) {
+          stop("Uniform prior: the column names attribute for support must correspond to the named parameters in the model formula.")
         }
-        quad <- RSquadrature.uniform(no.terms, t(prior$limits), nr, nq)
+        quad <- RSquadrature.uniform(no.terms, t(prior$support), nr, nq)
         abscissas <- as.matrix(quad$a)
-        colnames(abscissas) <- colnames(prior$limits)
+        colnames(abscissas) <- colnames(prior$support)
         weights <- quad$w
         } else {
           stop("Argument \"prior\" must correctly specify a normal or uniform prior for the model parameters (see help file).")
@@ -625,12 +759,12 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
 ############ acenlm ############################
 
 ## if method="quadrature", prior is a list with (a) for normal dist, mean, var, (optionally) nr and ns; 
-## (b) for uniform dist, limits, (optionally) nr and ns
-## mu must have named elements, limits must have named columns
+## (b) for uniform dist, support, (optionally) nr and ns
+## mu must have named elements, support must have named columns
 
 acenlm <- function (formula, start.d, prior, B, criterion = c("D", "A", "E", "SIG", "NSEL"), 
                      method = c("quadrature", "MC"), Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, 
-                     progress = FALSE, limits = NULL, tolerence = 1e-08) 
+                     progress = FALSE, limits = NULL) 
 {
   
   criterion <- match.arg(criterion)
@@ -653,20 +787,7 @@ acenlm <- function (formula, start.d, prior, B, criterion = c("D", "A", "E", "SI
   utilobj <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(start.d)[[2]], 
                          criterion = criterion, method = method, nrq = B) 
   
-  cat("\n")
-  cat("acenlm: summary of inputs\n\n")
-  cat("Formula: "); print(formula)
-  cat("Criterion: ", criterion, "\n")
-  cat("Method: ", method, "\n\n")
-  if(identical(method, "MC")) cat("B: ", B, "\n\n")
-  else {
-    cat("nr = ", B[[1]], ", nq = ", B[[2]],"\n")
-    if(identical(names(prior)[1:2], c("mu", "sigma2"))) cat("Prior: normal\n\n")
-    if(identical(names(prior)[1], "limits")) cat("Prior: uniform\n\n")       
-  }
-  
-  
-  inte <- function(d, B) {
+ inte <- function(d, B) {
     d2 <- 0.5 * (d + 1) * diff + lower
     utilobj$utility(d2, B)
   }
@@ -697,7 +818,7 @@ acenlm <- function (formula, start.d, prior, B, criterion = c("D", "A", "E", "SI
   start.d2 <- 2 * (start.d - lower)/diff - 1
   output <- ace(utility = inte, start.d = start.d2, B = B, 
                  Q = Q, N1 = N1, N2 = N2, lower = -1, upper = 1, progress = progress, 
-                 limits = limits2, deterministic = deterministic, tolerence = tolerence)
+                 limits = limits2, deterministic = deterministic)
   inte2 <- function(d, B) {
     d1 <- 2 * (d - mainlower)/(mainupper - mainlower) - 1
     inte(d = d1, B = B)
@@ -708,6 +829,7 @@ acenlm <- function (formula, start.d, prior, B, criterion = c("D", "A", "E", "SI
   output$criterion <- criterion
   output$method <- method
   output$prior <- prior
+  output$formula <- formula
   output$phase1.d <- 0.5 * (output$phase1.d + 1) * (mainupper - 
                                                       mainlower) + mainlower
   output$phase2.d <- 0.5 * (output$phase2.d + 1) * (mainupper - 
@@ -851,7 +973,7 @@ list(par=theta, singular=singular)}
 ############ acephase1 ############################
 
 acephase1 <- function (utility, start.d, B, Q = 20, N1 = 20, 
-          lower, upper, limits = NULL, progress = FALSE, binary = FALSE, deterministic = FALSE, tolerence = 1e-08) 
+          lower, upper, limits = NULL, progress = FALSE, binary = FALSE, deterministic = FALSE) 
 {
   if(missing(B) && identical(deterministic, FALSE)) B <- c(20000, 1000)
   if(missing(B) && identical(deterministic, TRUE)) B <- NULL
@@ -953,9 +1075,9 @@ acephase1 <- function (utility, start.d, B, Q = 20, N1 = 20,
     new_DESIGN <- inner
     old_eval <- utility(d = old_DESIGN, B = B[[1]])
     new_eval <- utility(d = new_DESIGN, B = B[[1]])
-    if(deterministic) { 
-      the.p.val <- ifelse(new_eval > old_eval + tolerence, 1, 0)
-      if(identical(the.p.val, 0)) break
+    if(deterministic) {
+      the.p.val <- ifelse(new_eval > old_eval, 1, 0)
+#      if(identical(the.p.val, 0)) break
     } else {
       the.p.val <- pval(old_eval, new_eval, binary)
       the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val)
@@ -973,16 +1095,17 @@ acephase1 <- function (utility, start.d, B, Q = 20, N1 = 20,
     if (progress) {
       cat("Phase I iteration ", counter, " out of ", N1, 
           " (Current value = ", best_eval, ") \n", sep = "")
+#      print(best)
     }
-    
+#    if(deterministic && identical(the.p.val, 0)) break
     counter <- counter + 1
   
   }
   ptm <- proc.time()[3] - ptm
   output <- list(utility = utility, start.d = start.d, phase1.d = best, 
-                 phase2.d = best, phase1.trace = curr2, phase2.trace = NULL, 
+                 phase2.d = best, phase1.trace = curr2, phase2.trace = NULL, B=B, 
                  Q = Q, N1 = N1, N2 = 0, glm = FALSE, nlm = FALSE, criterion = "NA", 
-                 family = "NA", prior = "NA", time = ptm, binary = binary, tolerence = tolerence, deterministic = deterministic)
+                 family = "NA", prior = "NA", time = ptm, binary = binary, deterministic = deterministic)
   class(output) <- "ace"
   output
 }
@@ -990,7 +1113,7 @@ acephase1 <- function (utility, start.d, B, Q = 20, N1 = 20,
 ############ acephase2 ############################
 
 acephase2 <- function (utility, start.d, B, N2 = 100, progress = FALSE, 
-          binary = FALSE, deterministic = FALSE, tolerence = 1e-08) 
+          binary = FALSE, deterministic = FALSE) 
 {
   if(missing(B) && identical(deterministic, FALSE)) B <- c(20000, 1000)
   if(missing(B) && identical(deterministic, TRUE)) B <- NULL
@@ -1058,16 +1181,16 @@ acephase2 <- function (utility, start.d, B, N2 = 100, progress = FALSE,
           N2, " (Current value = ", curr2[length(curr2)], 
           ") \n", sep = "")
     }
-    if(deterministic && counter2 > 2) {
-      if(!(curr2[counter2 - 1] > curr2[counter2 - 2] + tolerence)) break
-    }
+#    if(deterministic && counter2 > 2) {
+#      if(!(curr2[counter2 - 1] > curr2[counter2 - 2] + tolerence)) break
+#    }
   }
   ptm <- proc.time()[3] - ptm
   output <- list(utility = utility, start.d = start.d, phase1.d = start.d, 
-                 phase2.d = best, phase1.trace = NULL, phase2.trace = curr2, 
+                 phase2.d = best, phase1.trace = NULL, phase2.trace = curr2, B=B, 
                  Q = NULL, N1 = 0, N2 = N2, glm = FALSE, nlm = FALSE, 
                  criterion = "NA", family = "NA", prior = "NA", time = ptm, 
-                 binary = binary, deterministic = deterministic, tolerence = tolerence)
+                 binary = binary, deterministic = deterministic)
   class(output) <- "ace"
   output
 }
@@ -1076,7 +1199,7 @@ acephase2 <- function (utility, start.d, B, N2 = 100, progress = FALSE,
 
 ace <- function (utility, start.d, B, Q = 20, N1 = 20, 
           N2 = 100, lower = -1, upper = 1, limits = NULL, progress = FALSE, 
-          binary = FALSE, deterministic = FALSE, tolerence = 1e-08) 
+          binary = FALSE, deterministic = FALSE) 
 {
   if(missing(B) && identical(deterministic, FALSE)) B <- c(20000, 1000)
   if(missing(B) && identical(deterministic, TRUE)) B <- NULL
@@ -1086,7 +1209,7 @@ ace <- function (utility, start.d, B, Q = 20, N1 = 20,
     interim <- acephase1(utility = utility, start.d = start.d, 
                          B = B, Q = Q, N1 = N1, lower = lower, upper = upper, 
                          limits = limits, progress = progress, binary = binary, 
-                         deterministic = deterministic, tolerence = tolerence)
+                         deterministic = deterministic)
     interim.d <- interim$phase1.d
     interim.trace <- interim$phase1.trace
   }
@@ -1097,7 +1220,7 @@ ace <- function (utility, start.d, B, Q = 20, N1 = 20,
   if (N2 > 0) {
     last <- acephase2(utility = utility, start.d = interim.d, 
                       B = B, N2 = N2, progress = progress, binary = binary, 
-                      deterministic = deterministic, tolerence = tolerence)
+                      deterministic = deterministic)
     last.d <- last$phase2.d
     last.trace <- last$phase2.trace
   }
@@ -1108,9 +1231,8 @@ ace <- function (utility, start.d, B, Q = 20, N1 = 20,
   ptm <- proc.time()[3] - ptm
   output <- list(utility = utility, start.d = start.d, phase1.d = interim.d, 
                  phase2.d = last.d, phase1.trace = interim.trace, phase2.trace = last.trace, 
-                 Q = Q, N1 = N1, N2 = N2, glm = FALSE, nlm = FALSE, criterion = "NA", 
-                 prior = "NA", time = ptm, binary = binary, deterministic = deterministic, 
-                 tolerence = tolerence)
+                 B = B, Q = Q, N1 = N1, N2 = N2, glm = FALSE, nlm = FALSE, criterion = "NA", 
+                 prior = "NA", time = ptm, binary = binary, deterministic = deterministic)
   class(output) <- "ace"
   output
 }
@@ -1118,11 +1240,11 @@ ace <- function (utility, start.d, B, Q = 20, N1 = 20,
 ############ aceglm ############################
 
 ## if method="quadrature", prior is a list with (a) for normal dist, mean, var, (optionally) nr and ns; 
-## (b) for uniform dist, limits, (optionally) nr and ns
+## (b) for uniform dist, support, (optionally) nr and ns
 
 aceglm <- function (formula, start.d, family, prior, B, criterion = c("D", "A", "E", "SIG", "NSEL", "SIG-Norm", "NSEL-Norm"), 
                      method = c("quadrature", "MC"), Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, 
-                     progress = FALSE, limits = NULL, tolerence = 1e-08) 
+                     progress = FALSE, limits = NULL) 
 {
   criterion <- match.arg(criterion)
   if(length(method) > 1) {
@@ -1144,19 +1266,6 @@ aceglm <- function (formula, start.d, family, prior, B, criterion = c("D", "A", 
   utilobj <- utilityglm(formula = formula, family = family, prior = prior, 
                          criterion = criterion, method = method, nrq = B) 
   
-  cat("\n")
-  cat("aceglm: summary of inputs\n\n")
-  cat("Formula: "); print(formula)
-  print(family())
-  cat("Criterion: ", criterion, "\n")
-  cat("Method: ", method, "\n\n")
-  if(identical(method, "MC")) cat("B: ", B, "\n\n")
-  else {
-    cat("nr = ", B[[1]], ", nq = ", B[[2]],"\n")
-    if(identical(names(prior)[1:2], c("mu", "sigma2"))) cat("Prior: normal\n\n")
-    if(identical(names(prior)[1], "limits")) cat("Prior: uniform\n\n")       
-  }
-  
   inte <- function(d, B) {
     utilobj$utility(d, B)
   }
@@ -1166,13 +1275,15 @@ aceglm <- function (formula, start.d, family, prior, B, criterion = c("D", "A", 
   
   output <- ace(utility = inte, start.d = start.d, B = B, Q = Q, 
                 N1 = N1, N2 = N2, lower = lower, upper = upper, progress = progress, 
-                limits = limits, deterministic = deterministic, tolerence = tolerence)
+                limits = limits, deterministic = deterministic)
   output$glm <- TRUE
   output$criterion <- criterion
   output$method <- method
   output$prior <- prior
   output$phase1.d <- output$phase1.d
   output$phase2.d <- output$phase2.d
+  output$family <- family
+  output$formula <- formula
   output
 }
 
@@ -1213,14 +1324,33 @@ mins<-ifelse(mins<10,paste("0",mins,sep=""),mins)
 secs<-ifelse(secs<10,paste("0",secs,sep=""),secs)
 
 if(x$glm==TRUE){
-cat("Generalised Linear Model \n")
-cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")} 
+  cat("Generalised Linear Model \n")
+  cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")
+  cat("Formula: "); print(x$formula)
+  print(x$family())
+  cat("Method: ", x$method, "\n\n")
+  if(identical(x$method, "MC")) cat("B: ", x$B, "\n\n")
+  else {
+    cat("nr = ", x$B[[1]], ", nq = ", x$B[[2]],"\n")
+    if(identical(names(x$prior)[1:2], c("mu", "sigma2"))) cat("Prior: normal\n\n")
+    if(identical(names(x$prior)[1], "support")) cat("Prior: uniform\n\n")       
+  }
+} 
 if(x$nlm==TRUE){
-cat("Non Linear Model \n")
-cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")} 
+  cat("Non Linear Model \n")
+  cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")
+  cat("Formula: "); print(x$formula)
+  cat("Method: ", x$method, "\n\n")
+  if(identical(x$method, "MC")) cat("B: ", x$B, "\n\n")
+  else {
+    cat("nr = ", x$B[[1]], ", nq = ", x$B[[2]],"\n")
+    if(identical(names(x$prior)[1:2], c("mu", "sigma2"))) cat("Prior: normal\n\n")
+    if(identical(names(x$prior)[1], "support")) cat("Prior: uniform\n\n")       
+  }
+} 
 if(x$nlm==FALSE & x$glm==FALSE){
 cat("User-defined model & utility \n")}
-cat("\n")
+#cat("\n")
 cat("Number of runs = ",dim(x$phase2.d)[1],"\n",sep="")
 cat("\n")
 cat("Number of factors = ",dim(x$phase2.d)[2],"\n",sep="")
@@ -1496,9 +1626,9 @@ etaz<-zam%*%t(z)
 rho<-1/(1+exp(-etax-etaz))
 y<-matrix(rbinom(n=B2d*n1,size=1,prob=as.vector(rho[1:B2d,])),ncol=n1)
 
-frho<-as.vector(.Call("rowSumscpp", log(1-rho[((B2d+1):(B2d+B4d)),]), package="acebayes"))
+frho<-as.vector(.Call("rowSumscpp", log(1-rho[((B2d+1):(B2d+B4d)),]), PACKAGE="acebayes"))
 
-rsll4<-.Call("sighlrcpp", cbind(x,z), y, cbind(sam[-(1:B2d),],zam[-(1:B2d),]), frho, sam[1:B2d,], exp(etax[1:B2d,]), exp(etaz[-(1:(B2d+B4d)),]), package="acebayes")
+rsll4<-.Call("sighlrcpp", cbind(x,z), y, cbind(sam[-(1:B2d),],zam[-(1:B2d),]), frho, sam[1:B2d,], exp(etax[1:B2d,]), exp(etaz[-(1:(B2d+B4d)),]), PACKAGE="acebayes")
 
 rsll4<-log(rsll4)
 
@@ -1753,9 +1883,10 @@ RSquadrature <- function(p, mu, Sigma, Nr, Nq) {
 	#P<- p+1
 	P<-p
 	Q <- array(dim=c(Nq,P,P))
-
+	big.ran.mat <- matrix(halton(P * P * Nq, dim = 1, normal = T), ncol = P)
 	for (i in 1:Nq) {
-		ran.mat<-matrix(rnorm(P*P),ncol=P)
+#	  ran.mat<-matrix(rnorm(P*P),ncol=P)
+	  ran.mat <- big.ran.mat[(1 + (i - 1) * P):(P + (i - 1) * P), ]
 		qr <- qr(ran.mat)
 		Q[i,,]<-qr.Q(qr)
 	}
@@ -1812,10 +1943,11 @@ RSquadrature.uniform <- function(p, limits, Nr, Nq) {
 	#P<- p+1
 	P<-p
 	Q <- array(dim=c(Nq,P,P))
-
+	big.ran.mat <- matrix(halton(P * P * Nq, dim = 1, normal = T), ncol = P)
 	for (i in 1:Nq) {
-		ran.mat<-matrix(rnorm(P*P),ncol=P)
-		qr <- qr(ran.mat)
+#		ran.mat<-matrix(rnorm(P*P),ncol=P)
+    ran.mat <- big.ran.mat[(1 + (i - 1) * P):(P + (i - 1) * P), ]
+	  qr <- qr(ran.mat)
 		Q[i,,]<-qr.Q(qr)
 	}
 

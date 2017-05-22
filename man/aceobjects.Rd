@@ -6,7 +6,7 @@
 Print and Summary of \code{ace} Objects
 }
 \description{
-These function prints and summarises objects of class \code{"ace"}.
+These functions print and summarise objects of class \code{"ace"}.
 }
 \usage{
 \method{print}{ace}(x, ...)

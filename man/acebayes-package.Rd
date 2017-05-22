@@ -6,18 +6,18 @@
 Optimal Bayesian Experimental Design using the Approximate Coordinate Exchange (ACE) Algorithm
 }
 \description{
-Optimal Bayesian experimental design (Chaloner & Verdinelli, 1995) involves maximising 
+Finding an optimal Bayesian experimental design (Chaloner & Verdinelli, 1995) involves maximising 
 an objective function given by the expectation of some appropriately chosen utility 
-function with respect to the joint distribution of parameters and responses, over a 
-design space of all possible designs. This objective function is usually not available 
-in closed form and the design space can be of high dimensionality.
+function with respect to the joint distribution of unknown quantities (including responses). This objective 
+function is usually not available in closed form and the design space can be continuous and of high 
+dimensionality.
 
-The \code{acebayes} package uses the Approximate Coordinate Exchange (ACE; Overstall 
-& Woods, 2017) to approximately maximise the expectation of the utility function. 
+The \code{acebayes} package uses Approximate Coordinate Exchange (ACE; Overstall 
+& Woods, 2017) to maximise an approximation to the expectation of the utility function. 
 In Phase I of the algorithm, a continuous version of the coordinate exchange 
 algorithm (Meyer & Nachtsheim, 1995) is used to maximise an approximation to 
 expected utility. The approximation is given by the predictive mean of a Gaussian 
-process (GP) emulator constructing using a 'small' number of Monte Carlo (MC) 
+process (GP) emulator constructing using a 'small' number of approximate
 evaluations of the expected utility function. In Phase II a point exchange 
 algorithm is used to consolidate clusters of design points into repeated design 
 points.
@@ -26,15 +26,15 @@ points.
 \tabular{ll}{
 Package: \tab acebayes\cr
 Type: \tab Package\cr
-Version: \tab 1.3.4\cr
-Date: \tab 2017-02-09\cr
+Version: \tab 1.4\cr
+Date: \tab 2017-05-22\cr
 License: \tab GPL-2\cr
 }
 The most important functions are \code{\link{ace}}, \code{\link{aceglm}} and \code{\link{acenlm}}.
 
-The function \code{\link{ace}} implements both phases of the ACE algorithm. It has two mandatory arguments: \code{utility} (a function specifying the chosen utility function incorporating the joint distribution of parameters and responses) and \code{start.d} (the initial design). The function will return the final design from the algorithm, along with information to assess convergence.
+The function \code{\link{ace}} implements both phases of the ACE algorithm. It has two mandatory arguments: \code{utility} (a function specifying the chosen utility function incorporating the joint distribution of unknown quantities) and \code{start.d} (the initial design). The function will return the final design from the algorithm, along with information to assess convergence.
 
-The computational time of \code{\link{ace}} is highly dependent on the computational time required to evaluate the user-supplied function \code{utility}. Therefore it is recommended that users take advantage of \code{R} packages such as \code{Rcpp} (Eddelbuettel & Francois, 2011), \code{RcppArmadillo} (Eddelbuettel & Sanderson, 2014), or \code{RcppEigen} (Bates & Eddelbuettel, 2013), that provide convenient interfaces for compiled programming languages.
+The computational time of \code{\link{ace}} is highly dependent on the computational time required to evaluate the user-supplied function \code{utility}. Therefore it is recommended that users take advantage of \code{R} packages such as \code{Rcpp} (Eddelbuettel & Francois, 2011), \code{RcppArmadillo} (Eddelbuettel & Sanderson, 2014), or \code{RcppEigen} (Bates & Eddelbuettel, 2013), that provide convenient interfaces to compiled programming languages.
 
 The functions \code{\link{aceglm}} and \code{\link{acenlm}} are user-friendly wrapper functions for \code{\link{ace}} which use the ACE algorithm to find Bayesian optimal experimental designs for generalised linear models and non-linear models, respectively. As special cases, both of these functions can find pseudo-Bayesian optimal designs.
 
@@ -70,7 +70,7 @@ approximate coordinate exchange. \emph{Technometrics}, in press. (\emph{arXiv:15
 
 \examples{
 ## This example uses aceglm to find a pseudo-Bayesian D-optimal design for a 
-## first order logistic regression model with 6 runs 4 factors (i.e. 5 parameters).
+## first-order logistic regression model with 6 runs 4 factors (i.e. 5 parameters).
 ## The priors are those used by Overstall & Woods (2017), i.e. a uniform prior 
 ## distribution is assumed for each parameter. The design space for each coordinate 
 ## is [-1, 1].
@@ -81,8 +81,8 @@ set.seed(1)
 n<-6
 ## Specify the sample size (number of runs).
 
-start.d<-matrix(2*randomLHS(n=n,k=4)-1,nrow=n,ncol=4,
-dimnames=list(as.character(1:n),c("x1","x2","x3","x4")))
+start.d<-matrix(2 * randomLHS(n = n,k = 4) - 1, nrow = n, ncol = 4,
+dimnames = list(as.character(1:n), c("x1", "x2", "x3", "x4")))
 ## Generate an initial design of appropriate dimension. The initial design is a 
 ## Latin hypercube sample.
 
@@ -91,13 +91,13 @@ upp<-c(3, 10, 11, 0, 3.5)
 ## Lower and upper limits of the uniform prior distributions.
 
 prior<-function(B){
-t(t(6*matrix(runif(n=5*B),ncol=5))+low)}
+t(t(6*matrix(runif(n = 5*B), ncol = 5)) + low)}
 ## Create a function which specifies the prior. This function will return a 
 ## B by 5 matrix where each row gives a value generated from the prior 
 ## distribution for the model parameters.
 
-example<-aceglm(formula=~x1+x2+x3+x4, start.d = start.d, family = binomial, 
-prior = prior , criterion = "D", method="MC", B = c(1000,1000), N1 = 1, N2 = 0, 
+example<-aceglm(formula = ~ x1 + x2 + x3 + x4,  start.d = start.d, family = binomial, 
+prior = prior , criterion = "D", method= "MC", B = c(1000,1000), N1 = 1, N2 = 0, 
 upper = 1)
 ## Call the aceglm function which implements the ACE algorithm requesting 
 ## only one iteration of Phase I and zero iterations of Phase II (chosen for 

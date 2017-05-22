@@ -6,61 +6,57 @@ Approximate Coordinate Exchange (ACE) Algorithm for Non-Linear Models
 }
 \encoding{UTF-8}
 \description{
-This function implements the approximate coordinate exchange algorithm (Overstall & Woods, 2017) for finding optimal Bayesian designs for non-linear models.
+This function implements the approximate coordinate exchange algorithm (Overstall & Woods, 2017) for finding optimal Bayesian designs for non-linear regression models.
 }
 \usage{
 acenlm(formula, start.d, prior, B, criterion = c("D", "A", "E", "SIG", "NSEL"), 
 method = c("quadrature", "MC"),  Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, 
-progress = FALSE, limits = NULL, tolerence = 1e-08)
+progress = FALSE, limits = NULL)
 }
 
 \arguments{
   \item{formula}{
-An object of class \code{"formula"}: a symbolic description of the model. The terms should correspond to the column names of the argument \code{start.d} and the column names of the result of a call to argument \code{prior}.
+An object of class \code{"formula"}: a symbolic description of the model. The terms should correspond to the column names of the argument \code{start.d} and the argument \code{prior}.
 }
   \item{start.d}{
 An \code{n} by \code{k} matrix with column names used by the argument \code{formula}.
 }
 	\item{prior}{
-For \code{method = "MC"}, a function with one argument: \code{B}; a scalar integer. This function should return a \code{B} by \code{p} (or \code{p+1} for argument \code{criterion = "SIG"} and \code{criterion = "NSEL"}) matrix containing a random sample from the prior distribution of the parameters. \code{p} is the number of parameters in \code{formula}. The columns should have names corresponding to the terms in the argument \code{formula}. For \code{criterion = "SIG"} and \code{criterion = "NSEL"}, an extra column (named \code{"sig2"}) should contain a random sample from the prior distribution of the error variance. 
+An argument specifying the prior distribution.  	
+	
+For \code{method = "MC"}, a function with one argument: \code{B}; a scalar integer. This function should return a \code{B} by \code{p} matrix (or \code{p+1} for \code{criterion = "SIG"} or \code{criterion = "NSEL"}), with \code{p} the number of model parameters, containing a random sample from the prior distribution of the parameters. The value of \code{p} should correspond to the number of terms specified by the \code{formula} argument. The column names must match the names of parameters in the \code{formula} argument. For \code{criterion="SIG"} or \code{criterion="NSEL"}, an extra column (named \code{sig2}) should contain a sample from the prior distribution of the error variance.
 
-For \code{method = "quadrature"}, a list specifying a normal or uniform prior for the model parameters in \code{formula}. 
-
-For a normal prior distribution, the list should have named entries \code{mu} and \code{sigma2} specifying the prior mean and variance-covariance matrix. The prior mean \code{mu} may be specified as a vector of length \code{p} where the elements are named to match the parameters in the \code{formula} argument. The prior variance-covariance matrix may be specified as either a scalar common variance or a vector of variances (for independent prior distributions) or as a \code{p x p} matrix. The names attribute of \code{mu} must match the names of the terms in the argument \code{formula}.
-
-For a uniform prior distribution, the list should have a named entry \code{limits}, a \code{2 x p} matrix with each column giving the lower and upper limits of the independent continuous uniform distribution for the corresponding parameter. The column names of \code{limits} must match the names of the terms in the argument \code{formula}.
-
+For \code{method = "quadrature"}, a list specifying a normal or uniform prior for the model parameters. For a normal prior distribution, the list should have named entries \code{mu} and \code{sigma2} specifying the prior mean and variance-covariance matrix. The prior mean may be specified as a scalar, which will then be replicated to form an vector of common prior means, or a vector of length \code{p}. The prior variance-covariance matrix may be specified as either a scalar common variance or a vector of length \code{p} of variances (for independent prior distributions) or as a \code{p} by \code{p} matrix. The names attribute of \code{mu} must match the names of the parameters in the \code{formula} argument. For a uniform prior distribution, the list should have a named entry \code{support}, a \code{2} by \code{p} matrix with each column giving the lower and upper limits of the support of the independent continuous uniform distribution for the corresponding parameter. The column names of \code{support} must match the names of parameters in the \code{formula} argument.
 }
  \item{B}{
-An optional vector argument of length two. 
+An optional argument for controlling the approximation to the expected utility. It should be a vector of length two. 
 
-For \code{criterion = "MC"}, it specifies the size of the Monte Carlo samples, generated from the joint distribution of model parameters and unobserved responses, to use in the ACE algorithm. The 1st sample size, \code{B[1]}, gives the sample size to use in the comparison procedures, and the 2nd sample size, \code{B[2]}, gives the sample size to use for the evaluations of Monte Carlo integration that are used to fit the Gaussian process emulator. If left unspecfified, the default value is \code{c(20000,1000)}.
+For \code{criterion = "MC"}, it specifies the size of the Monte Carlo samples, generated from the joint distribution of unknown quantities. The first sample size, \code{B[1]}, gives the sample size to use in the comparison procedures, and the second sample size, \code{B[2]}, gives the sample size to use for the evaluations of Monte Carlo integration that are used to fit the Gaussian process emulator. If left unspecified, the default value is \code{c(20000,1000)}.
 
 For \code{criterion = "quadrature"}, it specifies the tuning parameters (numbers of radial abscissas and random rotations) for the implemented quadrature method; see \bold{Details} for more information. If left unspecified, the default value is \code{c(2, 8)}.
-
 }
 
 	\item{criterion}{
 An optional character argument specifying the utility function. There are currently five utility functions implemented consisting of 
 \enumerate{
 \item
-pseudo-Bayesian D-optimality (\code{criterion = "D"}); 
+\bold{pseudo-Bayesian D-optimality} (\code{criterion = "D"}); 
 \item
-pseudo-Bayesian A-optimality (\code{criterion = "A"}); 
+\bold{pseudo-Bayesian A-optimality} (\code{criterion = "A"}); 
 \item
-pseudo-Bayesian E-optimality (\code{criterion = "E"}); 
+\bold{pseudo-Bayesian E-optimality} (\code{criterion = "E"}); 
 \item
-Shannon information gain (\code{criterion = "SIG"}); 
+\bold{Shannon information gain} (\code{criterion = "SIG"}); 
 \item
-negative squared error loss (\code{criterion = "NSEL"}). 
+\bold{negative squared error loss} (\code{criterion = "NSEL"}). 
 }
-The default value is \code{"D"} denoting pseudo-Bayesian D-optimality. See 'Details' for more information. 
+The default value is \code{"D"} denoting pseudo-Bayesian D-optimality. See \bold{Details} for more information. 
 }
-	\item{method}{
-An optional character argument specifying the method of approximating the expected utility function. Current choices are \code{method = "quadrature"} for a deterministic quadrature approximation and \code{method = "MC"} for a stochastic Monte Carlo approximation. The first of these choices is available for the argument \code{criterion = "A"}, \code{"D"} or \code{"E"}; the second choice is available for all approximations. The default value for A, D, E criteria is \code{"quadrature"}; for SIG and NSL criteria it is MC. See \bold{Details} for more information. 		
+		\item{method}{
+	An optional character argument specifying the method of approximating the expected utility function. Current choices are \code{method = "quadrature"} for a deterministic quadrature approximation and \code{method = "MC"} for a stochastic Monte Carlo approximation. The first of these choices is \bold{only} available when the argument \code{criterion = "A"}, \code{"D"} or \code{"E"}. The second choice is available for all possible values of the argument \code{criterion}. If left unspecified, the argument defaults to \code{"quadrature"} for \code{criterion = "A"}, \code{"D"} or \code{"E"} and to \code{"MC"} otherwise. See \bold{Details} for more information. 
 }
   \item{Q}{
-An integer specifying the number of evaluations of the approximate expected utility (with sample size \code{B[2]}) that are used to fit the Gaussian process emulator. The default value is \code{20}.
+An integer specifying the number of evaluations of the approximate expected utility that are used to fit the Gaussian process emulator. The default value is \code{20}.
 }
   \item{N1}{
 An integer specifying the number of iterations of Phase I of the ACE algorithm (the coordinate exchange phase). 
@@ -82,55 +78,42 @@ An argument specifying the design space. This argument can either be a scalar or
   \item{limits}{
 An argument specifying the grid over which to maximise the Gaussian process emulator for the expected utility function. It should be a function with three arguments: \code{i}, \code{j} and \code{d} which generates a one-dimensional grid for the \code{ij}th coordinate of the design when the current design is \code{d}. The default value is NULL which generates values uniformly on the interval \code{(lower[i,j],upper[i,j])} or \code{(lower,upper)} depending on whether the arguments \code{lower} and \code{upper} are matrices or scalars, respectively.
 }
-	\item{tolerence}{
-For a deterministic approximation, the minimum improvement in approximate expected utility required to proceeed to the next iteration of coordinate (Phase I) or point (Phase II) exchange. The default value is \code{1e-08}. 				
-}
 }
 \details{
-This function implements the ACE algorithm to find designs for general classes of nonlinear regression models with identically and independently normally distributed errors. This means the user does not have to write their own utility function.
+This function implements the ACE algorithm to find designs for general classes of nonlinear regression models with identically and independently normally distributed errors meaning the user does not have to write their own utility function.
 
-Three different pseudo-Bayesian utility functions (or criteria) are implemented:
-
+Two utility functions are implemented.
 \enumerate{
 \item
-\bold{Bayesian D-optimal} (\code{criterion = "D"})
+\bold{Shannon information gain (SIG)} 
 
-Here the objective function is
-\deqn{U^D(d) = E \left( \log \vert \mathcal{I} (\theta;d) \vert \right)}{
-U^D(d) = E ( log | I(\theta;d)|)}
-i.e. the optimal design maximises the prior expectation of the log determinant of the Fisher information matrix.
+The utility function is
+\deqn{u^{SIG}(d) = \pi(\theta|y,d) - \pi(\theta),}{
+U^SIG(d) = f(\theta|y,d) - f(\theta),}
+where \eqn{\pi(\theta|y,d)}{f(\theta|y,d)} and \eqn{\pi(\theta)}{f(\theta)} denote the posterior and prior densities of the parameters \eqn{\theta}{\theta}, respectively.
 \item
-\bold{Bayesian A-optimal} (\code{criterion = "A"})
+\bold{Negative squared error loss (NSEL)}
 
-Here the objective function is
-\deqn{U^A(d) = - E \left( \mathrm{tr} \left\{ \mathcal{I} (\theta;d)^{-1} \right\} \right)}{
-U^A(d) = - E ( tr (I(\theta;d)^(-1)))}
-i.e. the optimal design minimises the prior expectation of the trace of the inverse Fisher information matrix.
-\item
-\bold{Bayesian E-optimal} (\code{criterion = "E"})
-
-Here the objective function is
-\deqn{U^E(d) = E \left( \mathrm{min} \mbox{ } e\left(\mathcal{I} (\theta;d) \right) \right)}{
-U^E(d) = E ( min(e(I(\theta;d))))}
-where \eqn{e()}{e()} denotes the function that calculates the eigenvalues of its argument, i.e. the optimal design maximises the prior expectation of the minimum eigenvalue of the Fisher information matrix.}
-
-Two fully Bayesian utility functions are implemented:
-
-\enumerate{
-\item
-\bold{Shannon information gain} (\code{criterion = "SIG"})
-Here the objective function is
-\deqn{U^{SIG}(d) = E \left( \pi(\theta|y,d) - \pi(\theta) \right)}{
-U^SIG(d) = E ( f(\theta|y,d) - f(\theta) )}
-\item
-\bold{Negative squared error loss} (\code{criterion = "NSEL"})
-Here the objective function is
-\deqn{U^{NSEL}(d) = E \left( \left(\theta - E(\theta,y,d)\right)^T \left(\theta - E(\theta,y,d)\right)\right)}{
-U^NSEL(d) = E ( (\theta - E(\theta|y,d))^T(\theta - E(\theta|y,d)))}
+The utility function is
+\deqn{u^{NSEL}(d) = - \left(\theta - E(\theta |y,d)\right)^T \left(\theta - E(\theta |y,d)\right),}{
+u^NSEL(d) = - (\theta - E(\theta |y,d))^T(\theta - E(\theta |y,d)),}
+where \eqn{E(\theta | y,d)}{E(\theta | y,d)} denotes the posterior mean of \eqn{\theta}{\theta}.
 }
 
-The expected utilities can be approximated using Monte Carlo methods (\code{method = "MC"} for all criteria) or using a deterministic quadrature method (\code{method = "quadrature"}, implemented for the D, A and E criteria). The former approach approximates the expected utility via sampling from the prior. The latter approach uses a radial-spherical integration rule (Monahan and Genz, 1997) and \code{B[1]} specifies the number, \eqn{n_r}{nr}, of radial abscissas and \code{B[2]} specifies the number, \eqn{n_q}{nq}, of random rotations. Larger values of \eqn{n_r}{nr} and \eqn{n_q}{nq} will produce more accurate, but also more computationally expensive, approximations. See Gotwalt et al. (2009) for further details.   
+In both cases the utility function is not available in closed form due to the analytical intractability of either the posterior distribution (for SIG) or the posterior mean (for NSEL). Sampling-based Monte Carlo or importance sampling approximations will be employed. This was the original approach used by Overstall & Woods (2017). 
 
+A normal approximation to the posterior can be taken leading to the approximation by some scalar function of the Fisher information matrix, \eqn{\mathcal{I} (\theta;d)}{I (\theta;d)}, which only depends on \eqn{\theta}{\theta} (Chaloner & Verdinelli, 1995). In the case of SIG, the approximate utility is given by
+\deqn{u^{D}(d) = \log \vert \mathcal{I} (\theta;d) \vert,}{
+u^D(d) = log | I(\theta;d)|,}
+and the resulting design is typically called pseudo-Bayesian D-optimal. For NSEL, the approximate utility is given by
+\deqn{u^A(d) = - \mathrm{tr} \left\{ \mathcal{I} (\theta;d)^{-1} \right\} }{
+u^A(d) = - tr (I(\theta;d)^(-1))}
+with the resulting design termed pseudo-Bayesian A-optimal. These designs are often used under the frequentist approach to optimal experimental design and so to complete the usual set, the following utility for finding a pseudo-Bayesian E-optimal design is also implemented:
+\deqn{u^E(d) = \mathrm{min} \mbox{ } e\left(\mathcal{I} (\theta;d) \right),}{
+U^E(d) = min(e(I(\theta;d))),}
+where \eqn{e()}{e()} denotes the function that calculates the eigenvalues of its argument.
+
+The expected utilities can be approximated using Monte Carlo methods (\code{method = "MC"} for all criteria) or using a deterministic quadrature method (\code{method = "quadrature"}, implemented for the D, A and E criteria). The former approach approximates the expected utility via sampling from the prior. The latter approach uses a radial-spherical integration rule (Monahan and Genz, 1997) and \code{B[1]} specifies the number, \eqn{n_r}{n_r}, of radial abscissas and \code{B[2]} specifies the number,  \eqn{n_q}{n_q}, of random rotations. Larger values of  \eqn{n_r}{n_r} will produce more accurate, but also more computationally expensive, approximations. See Gotwalt et al. (2009) for further details.   
 
 For more details on the ACE algorithm, see Overstall & Woods (2017).
 }
@@ -155,6 +138,9 @@ A vector containing the evaluations of the approximate expected utility of the c
 \item{phase2.trace}{
 A vector containing the evaluations of the approximate expected utility of the current design at each stage of Phase II of the ACE algorithm. This can be used to assess convergence.
 }
+\item{B}{
+The argument \code{B}.	
+}
 \item{Q}{
 The argument \code{Q}.
 }
@@ -178,6 +164,9 @@ If the object is a result of a direct call to \code{acenlm} then this is the arg
 }
 \item{prior}{
 If the object is a result of a direct call to \code{aceglm} then this is the argument \code{prior}.
+}
+\item{formula}{
+If the object is a result of a direct call to \code{acenlm} then this is the argument \code{formula}.	
 }
 \item{time}{
 Computational time (in seconds) to run the ACE algorithm.
@@ -226,28 +215,28 @@ set.seed(1)
 n<-6
 ## Specify the sample size (number of runs).
 
-start.d<-matrix(24*randomLHS(n=n,k=1),nrow=n,ncol=1,
-dimnames=list(as.character(1:n),c("t")))
+start.d<-matrix(24 * randomLHS(n = n, k = 1), nrow = n, ncol = 1,
+dimnames = list(as.character(1:n), c("t")))
 ## Generate an initial design of appropriate dimension. The initial design is a 
 ## Latin hypercube sample.
 
-low<-c(0.01884,0.298,21.8)
-upp<-c(0.09884,8.298,21.8)
-## Lower and upper limits of the uniform prior distributions. Note that the prior
+low<-c(0.01884, 0.298, 21.8)
+upp<-c(0.09884, 8.298, 21.8)
+## Lower and upper limits of the support of the uniform prior distributions. Note that the prior
 ## for the third element is a point mass.
 
 prior<-function(B){
-out<-cbind(runif(n=B,min=low[1],max=upp[1]),runif(n=B,min=low[2],max=upp[2]),
-runif(n=B,min=low[3],max=upp[3]))
-colnames(out)<-c("a","b","c")
+out<-cbind(runif(n = B, min = low[1], max = upp[1]), runif(n = B, min = low[2],max = upp[2]),
+runif(n = B, min = low[3], max = upp[3]))
+colnames(out)<-c("a", "b", "c")
 out}
 
 ## Create a function which specifies the prior. This function will return a 
 ## B by 3 matrix where each row gives a value generated from the prior 
 ## distribution for the model parameters.
 
-example1<-acenlm(formula=~c*(exp(-a*t)-exp(-b*t)), start.d = start.d, prior = prior, 
-N1 = 1, N2 = 0, B = c(1000,1000), lower = 0, upper = 24, method = "MC")
+example1<-acenlm(formula = ~ c*(exp( - a * t) - exp( - b * t)), start.d = start.d, prior = prior, 
+N1 = 1, N2 = 0, B = c(1000, 1000), lower = 0, upper = 24, method = "MC")
 ## Call the acenlm function which implements the ACE algorithm requesting 
 ## only one iteration of Phase I and zero iterations of Phase II. The Monte
 ## Carlo sample size for the comparison procedure (B[1]) is set to 1000.
@@ -257,15 +246,19 @@ example1
 
 #Non Linear Model 
 #Criterion = Bayesian D-optimality 
-
+#Formula: ~c * (exp(-a * t) - exp(-b * t))
+#Method:  MC 
+#
+#B:  1000 1000 
+#
 #Number of runs = 6
-
+#
 #Number of factors = 1
-
+#
 #Number of Phase I iterations = 1
-
+#
 #Number of Phase II iterations = 0
-
+#
 #Computer time = 00:00:00
 
 example1$phase2.d
@@ -279,10 +272,10 @@ example1$phase2.d
 #5  1.4742319
 #6 12.7062270
 
-prior2 <- list(limits = cbind(rbind(low, upp)))
-colnames(prior2$limits) <- c("a", "b", "c")
-example2 <- acenlm(formula = ~c * (exp(-a * t) - exp(-b *t)), start.d = start.d, prior = prior2, 
-lower = 0, upper = 24, N1 = 1, N2 = 0)
+prior2 <- list(support = cbind(rbind(low, upp)))
+colnames(prior2$support) <- c("a", "b", "c")
+example2 <- acenlm(formula = ~ c * (exp( - a * t) - exp( - b *t)), start.d = start.d, 
+prior = prior2, lower = 0, upper = 24, N1 = 1, N2 = 0 )
 ## Call the acenlm function with the default method of "quadrature"
 
 example2$phase2.d
@@ -296,8 +289,8 @@ example2$phase2.d
 #5 23.3100644
 #6 20.1339899
 
-utility <- utilitynlm(formula = ~c * (exp(-a * t) - exp(-b *t)), prior = prior, 
-                            desvars = "t", method = "MC")$utility
+utility <- utilitynlm(formula = ~c * (exp( - a * t) - exp( - b *t)), prior = prior, 
+                            desvars = "t", method = "MC" )$utility
 ## create a utility function to compare designs
 
 mean(utility(example1$phase1.d, B = 20000))
