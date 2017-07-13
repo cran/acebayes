@@ -26,8 +26,8 @@ points.
 \tabular{ll}{
 Package: \tab acebayes\cr
 Type: \tab Package\cr
-Version: \tab 1.4\cr
-Date: \tab 2017-05-22\cr
+Version: \tab 1.4.1\cr
+Date: \tab 2017-07-13\cr
 License: \tab GPL-2\cr
 }
 The most important functions are \code{\link{ace}}, \code{\link{aceglm}} and \code{\link{acenlm}}.

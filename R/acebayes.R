@@ -1,136 +1,122 @@
-############ effglm ############################
+############ efficiency ############################
 
-effglm<-function(d1, d2, B, formula = NULL, family = NULL, prior = NULL, criterion = c("D", "A", "E"), method = c("quadrature", "MC")){
+efficiency<-function(d1, d2, ...){
+  UseMethod("efficiency")}
+
+efficiency.matrix<-function(d1, d2, relative=TRUE, model = "nlm", B, formula, family = NULL, prior, criterion, ...){
   
-  if(identical(class(d1), "ace")) {
-    if(!identical(criterion, d1$criterion) && identical(length(criterion), as.integer(1))) 
-      warning(paste("Criterion from ace object d1 does not match the argument criterion: criterion \"", d1$criterion,"\" being used", sep = ""), 
-              immediate. = T)
-    criterion = d1$criterion
-    if(!identical(method, d1$method) && identical(length(method), as.integer(1))) 
-      warning(paste("Method from ace object d1 does not match the argument method: method \"", d1$method,"\" being used", sep = ""), 
-              immediate. = T)
-    method = d1$method
-    if(!identical(formula, d1$formula) && !is.null(formula)) 
-      warning(paste("Formula from ace object d1 does not match the argument formula: formula from d1 being used", sep = ""), 
-              immediate. = T)
-    if(!identical(family, d1$family) && !is.null(family)) 
-      warning(paste("Family from ace object d1 does not match the argument family: family from d1 being used", sep = ""), 
-              immediate. = T)
-    if(!identical(prior, d1$prior) && !is.null(prior)) 
-      warning(paste("Prior from ace object d1 does not match the argument prior: prior from d1 being used", sep = ""), 
-              immediate. = T)
-  } else {
-    criterion <- match.arg(criterion)
-    method <- match.arg(method)
-  }
+  if(model=="glm" & is.null(family)){
+    stop("The family argument must be specified when model argument is glm")}
   
-  if(!(criterion %in% c("D", "A", "E"))) stop("Argument criterion has to be one of A, D or E")
-  if(!(method %in% c("quadrature", "MC"))) stop("Argument method has to be one of quadrature or MC")
+  if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
+    stop("The criterion argument must be one of A, D or E")}
+    
+  if(model=="glm"){
+  RU <- utilityglm(formula = formula, family=family,prior = prior, criterion = criterion, method = "quadrature", nrq = B)} 
+  if(model=="nlm"){
+  RU <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(d1)[[2]], criterion = criterion, method = "quadrature", nrq = B)} 
   
+  U<-function(d) RU$utility(d = d, B = B)
+
+  U1 <- mean(U(d1))
+  if(model=="glm"){
+  p <- ncol(model.matrix(object = formula, data = data.frame(d1)))}
+  if(model=="nlm"){
+  allvars <- all.vars(formula)
+  paravars <- setdiff(allvars, dimnames(d1)[[2]])
+  p <- length(paravars)}
+
+  U2 <- mean(U(d2))
   
-  if(missing(B)) {
-    B <- switch(method,
-                MC = 1000,
-                quadrature = c(2, 8))
-  }
-  
-  if(identical(class(d1), "ace")) {
-    U <- function(d) d1$utility(d = d, B = B)
-    U1 <- mean(U(d1$phase2.d))
-    p <- ncol(model.matrix(object = d1$formula, data = data.frame(d1$phase2.d)))
-    d1a <- d1$phase2.d
-  } else if (identical(class(d1), "matrix")) {
-    if(identical(formula, NULL) || identical(family, NULL) || identical(prior, NULL)) 
-      stop("If d1 is not an object of class ace, formula, family and prior cannot be NULL")
-    RU <- utilityglm(formula=formula, family=family, prior=prior, criterion=criterion, method=method, nrq = B)
-    U <- function(d) RU$utility(d = d, B = B)
-    U1 <- mean(U(d1))
-    p <- ncol(model.matrix(object = formula, data = data.frame(d1)))
-    d1a <- d1
-  } else stop("Argument d1 must be an object of class ace or matrix")
-  
-  if(identical(class(d2), "ace")) {  
-    d2a <- d2$phase2.d
-  } else if(identical(class(d2), "matrix")) {  
-      d2a <- d2
-  } else stop("Argument d2 must be an object of class ace or matrix")
-  if(!identical(dim(d1a)[2], dim(d2a)[2])) stop("d1 and d2 must specify two designs with the same number of variables")
-  
-  U2 <- mean(U(d2a))
-  
-  switch(EXPR=criterion,
+  if(relative){
+    out<-switch(EXPR=criterion,
                 D = 100 * exp((U1 - U2) / p),
                 E = 100 * U1 / U2,
-                100 * U2/U1)
-}
+                100 * U2/U1)} else{
+                  out<-switch(EXPR=criterion,
+                              D = 100 * exp((U2 - U1) / p),
+                              E = 100 * U2 / U1,
+                              100 * U1/U2)}
+  out}
 
-############ effnlm ############################
-
-effnlm<-function(d1, d2, B, formula = NULL, prior = NULL, criterion = c("D", "A", "E"), method = c("quadrature", "MC")){
+efficiency.ace<-function(d1, d2, relative=TRUE, B, formula = NULL, family = NULL, prior = NULL, criterion = NULL, ...){
   
-  if(identical(class(d1), "ace")) {
-    if(!identical(criterion, d1$criterion) && identical(length(criterion), as.integer(1))) 
-      warning(paste("Criterion from ace object d1 does not match the argument criterion: criterion \"", d1$criterion,"\" being used", sep = ""), 
-              immediate. = T)
-    criterion = d1$criterion
-    if(!identical(method, d1$method) && identical(length(method), as.integer(1))) 
-      warning(paste("Method from ace object d1 does not match the argument method: method \"", d1$method,"\" being used", sep = ""), 
-              immediate. = T)
-    method = d1$method
-    if(!identical(formula, d1$formula) && !is.null(formula)) 
-      warning(paste("Formula from ace object d1 does not match the argument formula: formula from d1 being used", sep = ""), 
-              immediate. = T)
-    if(!identical(prior, d1$prior) && !is.null(prior)) 
-      warning(paste("Prior from ace object d1 does not match the argument prior: prior from d1 being used", sep = ""), 
-              immediate. = T)
-  } else {
-    criterion <- match.arg(criterion)
-    method <- match.arg(method)
-  }
+if(!(d1$nlm|d1$glm)){
+stop("efficiency function should only be used when either a) d1 is a result of a call to aceglm or acenlm with the argument criterion being A, D or E; or b) d1 is a matrix object and the call to efficiency has specified arguments formula, prior and criterion")}
+
+if(d1$glm){
+ 
+  if(is.null(formula)){
+    formula<-d1$formula}
+  if(is.null(family)){
+    family<-d1$family}
+  if(is.null(prior)){
+    prior<-d1$prior}
+  if(is.null(criterion)){
+    criterion<-d1$criterion}
     
-  if(!(criterion %in% c("D", "A", "E"))) stop("Argument criterion has to be one of A, D or E")
-  if(!(method %in% c("quadrature", "MC"))) stop("Argument method has to be one of quadrature or MC")
+  if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
+    stop("The criterion argument must be one of A, D or E")}
   
+  RU <- utilityglm(formula = formula, family=family,prior = prior, criterion = criterion, method = "quadrature", nrq = B)
+  U<-function(d) RU$utility(d = d, B = B)
   
-  if(missing(B)) {
-    B <- switch(method,
-                MC = 1000,
-                quadrature = c(2, 8))
-  }
-  
-  if(identical(class(d1), "ace")) {
-    U <- function(d) d1$utility(d = d, B = B)
-    U1 <- mean(U(d1$phase2.d))
-    p <- length(setdiff(all.vars(d1$formula), dimnames(d1$phase2.d)[[2]]))
-    d1a <- d1$phase2.d
-  } else if (identical(class(d1), "matrix")) {
-    if(identical(formula, NULL) || identical(prior, NULL)) 
-      stop("If d1 is not an object of class ace, formula and prior cannot be NULL")
-    if(is.null(dimnames(d1)[[2]])) stop("d1 must have column names")
-    RU <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(d1)[[2]], 
-                     criterion = criterion, method = method, nrq = B)
-    U<-function(d) RU$utility(d = d, B = B)
-    U1<-mean(U(d1))
-    p <- length(setdiff(all.vars(formula), dimnames(d1)[[2]]))
-    d1a <- d1
-  } else stop("Argument d1 must be an object of class ace or matrix")
-  
-  if(identical(class(d2), "ace")) {  
-    d2a<-d2$phase2.d
-    } else if(identical(class(d2), "matrix")) {  
-      d2a <- d2
-    } else stop("Argument d2 must be an object of class ace or matrix")
-  if(!identical(dim(d1a)[2], dim(d2a)[2])) stop("d1 and d2 must specify two designs with the same number of variables")
-  
+  U1 <- mean(U(d1$phase2.d))
+  p <- ncol(model.matrix(object = formula, data = data.frame(d1$phase2.d)))
+  if(inherits(d2,"ace")){
+    d2a<-d2$phase2.d}
+  if(inherits(d2,"matrix")){
+    d2a<-d2}
   U2 <- mean(U(d2a))
   
-  switch(EXPR=criterion,
+  if(relative){
+    out<-switch(EXPR=criterion,
+                D = 100 * exp((U1 - U2) / p),
+                E = 100 * U1 / U2,
+                100 * U2/U1)} else{
+                  out<-switch(EXPR=criterion,
+                              D = 100 * exp((U2 - U1) / p),
+                              E = 100 * U2 / U1,
+                              100 * U1/U2)}
+  out}
+  
+  
+if(d1$nlm){
+
+  if(is.null(formula)){
+    formula<-d1$formula}
+  if(is.null(prior)){
+    prior<-d1$prior}
+  if(is.null(criterion)){
+    criterion<-d1$criterion}
+    
+  if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
+    stop("The criterion argument must be one of A, D or E")}
+  
+  RU <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(d1$phase2.d)[[2]], 
+                         criterion = criterion, method = "quadrature", nrq = B)
+    U<-function(d) RU$utility(d = d, B = B)
+
+    U1 <- mean(U(d1$phase2.d))
+    p <- length(setdiff(all.vars(formula), dimnames(d1$phase2.d)[[2]]))
+    if(inherits(d2,"ace")){
+    d2a<-d2$phase2.d}
+    if(inherits(d2,"matrix")){
+    d2a<-d2}
+    U2 <- mean(U(d2a))
+  
+  if(relative){
+    out<-switch(EXPR=criterion,
          D = 100 * exp((U1 - U2) / p),
          E = 100 * U1 / U2,
-         100 * U2/U1)
-}
+         100 * U2/U1)} else{
+           out<-switch(EXPR=criterion,
+                       D = 100 * exp((U2 - U1) / p),
+                       E = 100 * U2 / U1,
+                       100 * U1/U2)}
+    out}
 
+out}
 
 ############ utilityglm ############################
 
@@ -832,9 +818,9 @@ acenlm <- function (formula, start.d, prior, B, criterion = c("D", "A", "E", "SI
   output$formula <- formula
   output$phase1.d <- 0.5 * (output$phase1.d + 1) * (mainupper - 
                                                       mainlower) + mainlower
-  output$phase2.d <- 0.5 * (output$phase2.d + 1) * (mainupper - 
-                                                      mainlower) + mainlower
-  output
+  output$phase2.d <- 0.5 * (output$phase2.d + 1) * (mainupper -                 
+                         mainlower) + mainlower
+output
 }
 
 ############ utilglm ############################
@@ -1284,7 +1270,8 @@ aceglm <- function (formula, start.d, family, prior, B, criterion = c("D", "A", 
   output$phase2.d <- output$phase2.d
   output$family <- family
   output$formula <- formula
-  output
+output
+
 }
 
 ############ plot.ace ############################
