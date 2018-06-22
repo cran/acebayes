@@ -1,122 +1,371 @@
-############ efficiency ############################
+############ assess ############################
 
-efficiency<-function(d1, d2, ...){
-  UseMethod("efficiency")}
+assess<-function(d1, d2, ...){
+  UseMethod("assess")}
 
-efficiency.matrix<-function(d1, d2, relative=TRUE, model = "nlm", B, formula, family = NULL, prior, criterion, ...){
-  
-  if(model=="glm" & is.null(family)){
-    stop("The family argument must be specified when model argument is glm")}
-  
-  if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
-    stop("The criterion argument must be one of A, D or E")}
-    
-  if(model=="glm"){
-  RU <- utilityglm(formula = formula, family=family,prior = prior, criterion = criterion, method = "quadrature", nrq = B)} 
-  if(model=="nlm"){
-  RU <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(d1)[[2]], criterion = criterion, method = "quadrature", nrq = B)} 
-  
-  U<-function(d) RU$utility(d = d, B = B)
+assess.ace<-function(d1, d2, B = NULL, n.assess = 20, relative = TRUE,...){
 
-  U1 <- mean(U(d1))
-  if(model=="glm"){
-  p <- ncol(model.matrix(object = formula, data = data.frame(d1)))}
-  if(model=="nlm"){
-  allvars <- all.vars(formula)
-  paravars <- setdiff(allvars, dimnames(d1)[[2]])
-  p <- length(paravars)}
+RU<-d1$utility	
 
-  U2 <- mean(U(d2))
-  
-  if(relative){
-    out<-switch(EXPR=criterion,
-                D = 100 * exp((U1 - U2) / p),
-                E = 100 * U1 / U2,
-                100 * U2/U1)} else{
-                  out<-switch(EXPR=criterion,
-                              D = 100 * exp((U2 - U1) / p),
-                              E = 100 * U2 / U1,
-                              100 * U1/U2)}
-  out}
+if(is.null(B)){
+B<-d1$B}
 
-efficiency.ace<-function(d1, d2, relative=TRUE, B, formula = NULL, family = NULL, prior = NULL, criterion = NULL, ...){
-  
-if(!(d1$nlm|d1$glm)){
-stop("efficiency function should only be used when either a) d1 is a result of a call to aceglm or acenlm with the argument criterion being A, D or E; or b) d1 is a matrix object and the call to efficiency has specified arguments formula, prior and criterion")}
+if(inherits(d2,"ace")){
+    d2a<-d2$phase2.d}
+if(inherits(d2,"pace")){
+    d2a<-d2$d}
+if(inherits(d2,"matrix")){
+    d2a<-d2}
 
+if(d1$deterministic){
+U1<-RU(d = d1$phase2.d, B = B)
+U2<-RU(d = d2a, B = B)
+} else{
+U1<-rep(0,n.assess)
+U2<-rep(0,n.assess)
+for(j in 1:n.assess){
+U1[j]<-mean(RU(d = d1$phase2.d, B = B[1]))
+U2[j]<-mean(RU(d = d2a, B = B[1]))
+}
+}
+
+if(!relative){
+oldU1<-U1	
+oldU2<-U2	
+U1<-oldU2
+U2<-oldU1}
+
+eff<-NULL
+if(d1$deterministic){
 if(d1$glm){
- 
-  if(is.null(formula)){
-    formula<-d1$formula}
-  if(is.null(family)){
-    family<-d1$family}
-  if(is.null(prior)){
-    prior<-d1$prior}
-  if(is.null(criterion)){
-    criterion<-d1$criterion}
-    
-  if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
-    stop("The criterion argument must be one of A, D or E")}
-  
-  RU <- utilityglm(formula = formula, family=family,prior = prior, criterion = criterion, method = "quadrature", nrq = B)
-  U<-function(d) RU$utility(d = d, B = B)
-  
-  U1 <- mean(U(d1$phase2.d))
-  p <- ncol(model.matrix(object = formula, data = data.frame(d1$phase2.d)))
-  if(inherits(d2,"ace")){
-    d2a<-d2$phase2.d}
-  if(inherits(d2,"matrix")){
-    d2a<-d2}
-  U2 <- mean(U(d2a))
-  
-  if(relative){
-    out<-switch(EXPR=criterion,
-                D = 100 * exp((U1 - U2) / p),
-                E = 100 * U1 / U2,
-                100 * U2/U1)} else{
-                  out<-switch(EXPR=criterion,
-                              D = 100 * exp((U2 - U1) / p),
-                              E = 100 * U2 / U1,
-                              100 * U1/U2)}
-  out}
-  
-  
+if(d1$criterion=="D"){
+p <- ncol(model.matrix(object = d1$formula, data = data.frame(d1$phase2.d)))
+eff <- 100 * exp((U1 - U2) / p)}
+if(d1$criterion=="E"){
+eff <- 100 * U1 / U2}
+if(d1$criterion=="A"){
+eff <- 100 * U2/U1}
+}
 if(d1$nlm){
+if(d1$criterion=="D"){
+p <- length(setdiff(all.vars(d1$formula), dimnames(d1$phase2.d)[[2]]))		
+eff <- 100 * exp((U1 - U2) / p)}
+if(d1$criterion=="E"){
+eff <- 100 * U1 / U2}
+if(d1$criterion=="A"){
+eff <- 100 * U2/U1}
+}
+}
 
-  if(is.null(formula)){
-    formula<-d1$formula}
-  if(is.null(prior)){
-    prior<-d1$prior}
-  if(is.null(criterion)){
-    criterion<-d1$criterion}
-    
-  if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
-    stop("The criterion argument must be one of A, D or E")}
-  
-  RU <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(d1$phase2.d)[[2]], 
-                         criterion = criterion, method = "quadrature", nrq = B)
-    U<-function(d) RU$utility(d = d, B = B)
+if(!relative){
+U1<-oldU1
+U2<-oldU2}
 
-    U1 <- mean(U(d1$phase2.d))
-    p <- length(setdiff(all.vars(formula), dimnames(d1$phase2.d)[[2]]))
-    if(inherits(d2,"ace")){
-    d2a<-d2$phase2.d}
-    if(inherits(d2,"matrix")){
-    d2a<-d2}
-    U2 <- mean(U(d2a))
-  
-  if(relative){
-    out<-switch(EXPR=criterion,
-         D = 100 * exp((U1 - U2) / p),
-         E = 100 * U1 / U2,
-         100 * U2/U1)} else{
-           out<-switch(EXPR=criterion,
-                       D = 100 * exp((U2 - U1) / p),
-                       E = 100 * U2 / U1,
-                       100 * U1/U2)}
-    out}
+out<-list(U1 = U1, U2 = U2, eff = eff, d1 = d1, d2 = d2)
+class(out)<-"assess"
 
 out}
+
+assess.pace<-function(d1, d2, B = NULL, n.assess = 20, relative = TRUE,...){
+
+RU<-d1$utility	
+
+if(is.null(B)){
+B<-d1$B}
+
+if(inherits(d2,"ace")){
+    d2a<-d2$phase2.d}
+if(inherits(d2,"pace")){
+    d2a<-d2$d}
+if(inherits(d2,"matrix")){
+    d2a<-d2}
+
+if(d1$deterministic){
+U1<-RU(d = d1$d, B = B)
+U2<-RU(d = d2a, B = B)
+} else{
+U1<-rep(0,n.assess)
+U2<-rep(0,n.assess)
+for(j in 1:n.assess){
+U1[j]<-mean(RU(d = d1$d, B = B[1]))
+U2[j]<-mean(RU(d = d2a, B = B[1]))
+}
+}
+
+if(!relative){
+oldU1<-U1	
+oldU2<-U2	
+U1<-oldU2
+U2<-oldU1}
+
+eff<-NULL
+if(d1$deterministic){
+if(d1$glm){
+if(d1$criterion=="D"){
+p <- ncol(model.matrix(object = d1$formula, data = data.frame(d1$d)))
+eff <- 100 * exp((U1 - U2) / p)}
+if(d1$criterion=="E"){
+eff <- 100 * U1 / U2}
+if(d1$criterion=="A"){
+eff <- 100 * U2/U1}
+}
+if(d1$nlm){
+if(d1$criterion=="D"){
+p <- length(setdiff(all.vars(d1$formula), dimnames(d1$d)[[2]]))		
+eff <- 100 * exp((U1 - U2) / p)}
+if(d1$criterion=="E"){
+eff <- 100 * U1 / U2}
+if(d1$criterion=="A"){
+eff <- 100 * U2/U1}
+}
+}
+
+if(!relative){
+U1<-oldU1
+U2<-oldU2}
+
+out<-list(U1 = U1, U2 = U2, eff = eff, d1 = d1, d2 = d2)
+class(out)<-"assess"
+
+out}
+
+print.assess<-function(x, ...){
+
+if(x$d1$deterministic){
+cat("Approximate expected utility of d1 =", x$U1, "\n")
+cat("Approximate expected utility of d2 =", x$U2, "\n")
+if(x$d1$glm|x$d1$nlm){
+if(x$d1$criterion=="D"|x$d1$criterion=="E"|x$d1$criterion=="A"){
+cat("Approximate relative ",x$d1$criterion,"-efficiency = ", x$eff,"% \n",sep="")
+}
+}
+} else{
+cat("Mean (sd) approximate expected utility of d1 = ", mean(x$U1)," (",sd(x$U1) ,") \n",sep="")
+cat("Mean (sd) approximate expected utility of d2 = ", mean(x$U2)," (",sd(x$U2) ,") \n",sep="")	
+}	
+	
+}
+
+summary.assess<-function(object, ...){
+
+print.assess(x=object)
+}
+
+plot.assess<-function(x, ...){
+
+if(x$d1$deterministic){
+warning("No meaningful plot produced when deterministic = TRUE")
+} else{
+boxplot(x$U1,x$U2, names = c("d1","d2"), xlab= "Object", ylab="Approximate expected utility")}	
+	
+}	
+
+############ efficiency ############################
+
+# efficiency<-function(d1, d2, ...){
+#   UseMethod("efficiency")}
+# 
+# efficiency.matrix<-function(d1, d2, relative=TRUE, model = "nlm", B, formula, family = NULL, prior, criterion, ...){
+#   
+#   if(model=="glm" & is.null(family)){
+#     stop("The family argument must be specified when model argument is glm")}
+#   
+#   if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
+#     stop("The criterion argument must be one of A, D or E")}
+#     
+#   if(model=="glm"){
+#   RU <- utilityglm(formula = formula, family=family,prior = prior, criterion = criterion, method = "quadrature", nrq = B)} 
+#   if(model=="nlm"){
+#   RU <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(d1)[[2]], criterion = criterion, method = "quadrature", nrq = B)} 
+#   
+#   U<-function(d) RU$utility(d = d, B = B)
+# 
+#   U1 <- mean(U(d1))
+#   if(model=="glm"){
+#   p <- ncol(model.matrix(object = formula, data = data.frame(d1)))}
+#   if(model=="nlm"){
+#   allvars <- all.vars(formula)
+#   paravars <- setdiff(allvars, dimnames(d1)[[2]])
+#   p <- length(paravars)}
+# 
+#   U2 <- mean(U(d2))
+#   
+#   if(relative){
+#     out<-switch(EXPR=criterion,
+#                 D = 100 * exp((U1 - U2) / p),
+#                 E = 100 * U1 / U2,
+#                 100 * U2/U1)} else{
+#                   out<-switch(EXPR=criterion,
+#                               D = 100 * exp((U2 - U1) / p),
+#                               E = 100 * U2 / U1,
+#                               100 * U1/U2)}
+#   out}
+# 
+# efficiency.ace<-function(d1, d2, relative=TRUE, B, formula = NULL, family = NULL, prior = NULL, criterion = NULL, ...){
+#   
+# if(!(d1$nlm|d1$glm)){
+# stop("efficiency function should only be used when either a) d1 is a result of a call to (p)aceglm or (p)acenlm with the argument criterion being A, D or E; or b) d1 is a matrix object and the call to efficiency has specified arguments formula, prior and criterion")}
+# 
+# if(d1$glm){
+#  
+#   if(is.null(formula)){
+#     formula<-d1$formula}
+#   if(is.null(family)){
+#     family<-d1$family}
+#   if(is.null(prior)){
+#     prior<-d1$prior}
+#   if(is.null(criterion)){
+#     criterion<-d1$criterion}
+#     
+#   if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
+#     stop("The criterion argument must be one of A, D or E")}
+#   
+#   RU <- utilityglm(formula = formula, family=family,prior = prior, criterion = criterion, method = "quadrature", nrq = B)
+#   U<-function(d) RU$utility(d = d, B = B)
+#   
+#   U1 <- mean(U(d1$phase2.d))
+#   p <- ncol(model.matrix(object = formula, data = data.frame(d1$phase2.d)))
+#   if(inherits(d2,"ace")){
+#     d2a<-d2$phase2.d}
+#   if(inherits(d2,"pace")){
+#     d2a<-d2$d}
+#   if(inherits(d2,"matrix")){
+#     d2a<-d2}
+#   U2 <- mean(U(d2a))
+#   
+#   if(relative){
+#     out<-switch(EXPR=criterion,
+#                 D = 100 * exp((U1 - U2) / p),
+#                 E = 100 * U1 / U2,
+#                 100 * U2/U1)} else{
+#                   out<-switch(EXPR=criterion,
+#                               D = 100 * exp((U2 - U1) / p),
+#                               E = 100 * U2 / U1,
+#                               100 * U1/U2)}
+#   out}
+#   
+#   
+# if(d1$nlm){
+# 
+#   if(is.null(formula)){
+#     formula<-d1$formula}
+#   if(is.null(prior)){
+#     prior<-d1$prior}
+#   if(is.null(criterion)){
+#     criterion<-d1$criterion}
+#     
+#   if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
+#     stop("The criterion argument must be one of A, D or E")}
+#   
+#   RU <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(d1$phase2.d)[[2]], 
+#                          criterion = criterion, method = "quadrature", nrq = B)
+#     U<-function(d) RU$utility(d = d, B = B)
+# 
+#     U1 <- mean(U(d1$phase2.d))
+#     p <- length(setdiff(all.vars(formula), dimnames(d1$phase2.d)[[2]]))
+#     if(inherits(d2,"ace")){
+#     d2a<-d2$phase2.d}
+#     if(inherits(d2,"pace")){
+#     d2a<-d2$d}
+#     if(inherits(d2,"matrix")){
+#     d2a<-d2}
+#     U2 <- mean(U(d2a))
+#   
+#   if(relative){
+#     out<-switch(EXPR=criterion,
+#          D = 100 * exp((U1 - U2) / p),
+#          E = 100 * U1 / U2,
+#          100 * U2/U1)} else{
+#            out<-switch(EXPR=criterion,
+#                        D = 100 * exp((U2 - U1) / p),
+#                        E = 100 * U2 / U1,
+#                        100 * U1/U2)}
+#     out}
+# 
+# out}
+# 
+# efficiency.pace<-function(d1, d2, relative=TRUE, B, formula = NULL, family = NULL, prior = NULL, criterion = NULL, ...){
+#   
+# if(!(d1$nlm|d1$glm)){
+# stop("efficiency function should only be used when either a) d1 is a result of a call to (p)aceglm or (p)acenlm with the argument criterion being A, D or E; or b) d1 is a matrix object and the call to efficiency has specified arguments formula, prior and criterion")}
+# 
+# if(d1$glm){
+#  
+#   if(is.null(formula)){
+#     formula<-d1$formula}
+#   if(is.null(family)){
+#     family<-d1$family}
+#   if(is.null(prior)){
+#     prior<-d1$prior}
+#   if(is.null(criterion)){
+#     criterion<-d1$criterion}
+#     
+#   if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
+#     stop("The criterion argument must be one of A, D or E")}
+#   
+#   RU <- utilityglm(formula = formula, family=family,prior = prior, criterion = criterion, method = "quadrature", nrq = B)
+#   U<-function(d) RU$utility(d = d, B = B)
+#   
+#   U1 <- mean(U(d1$d))
+#   p <- ncol(model.matrix(object = formula, data = data.frame(d1$d)))
+#   if(inherits(d2,"ace")){
+#     d2a<-d2$phase2.d}
+#   if(inherits(d2,"pace")){
+#     d2a<-d2$d}
+#   if(inherits(d2,"matrix")){
+#     d2a<-d2}
+#   U2 <- mean(U(d2a))
+#   
+#   if(relative){
+#     out<-switch(EXPR=criterion,
+#                 D = 100 * exp((U1 - U2) / p),
+#                 E = 100 * U1 / U2,
+#                 100 * U2/U1)} else{
+#                   out<-switch(EXPR=criterion,
+#                               D = 100 * exp((U2 - U1) / p),
+#                               E = 100 * U2 / U1,
+#                               100 * U1/U2)}
+#   out}
+#   
+#   
+# if(d1$nlm){
+# 
+#   if(is.null(formula)){
+#     formula<-d1$formula}
+#   if(is.null(prior)){
+#     prior<-d1$prior}
+#   if(is.null(criterion)){
+#     criterion<-d1$criterion}
+#     
+#   if(!any(c(criterion=="A"|criterion=="D"|criterion=="E"))){
+#     stop("The criterion argument must be one of A, D or E")}
+#   
+#   RU <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(d1$d)[[2]], 
+#                          criterion = criterion, method = "quadrature", nrq = B)
+#     U<-function(d) RU$utility(d = d, B = B)
+# 
+#     U1 <- mean(U(d1$d))
+#     p <- length(setdiff(all.vars(formula), dimnames(d1$d)[[2]]))
+#     if(inherits(d2,"ace")){
+#     d2a<-d2$phase2.d}
+#     if(inherits(d2,"pace")){
+#     d2a<-d2$d}
+#     if(inherits(d2,"matrix")){
+#     d2a<-d2}
+#     U2 <- mean(U(d2a))
+#   
+#   if(relative){
+#     out<-switch(EXPR=criterion,
+#          D = 100 * exp((U1 - U2) / p),
+#          E = 100 * U1 / U2,
+#          100 * U2/U1)} else{
+#            out<-switch(EXPR=criterion,
+#                        D = 100 * exp((U2 - U1) / p),
+#                        E = 100 * U2 / U1,
+#                        100 * U1/U2)}
+#     out}
+# 
+# out}
 
 ############ utilityglm ############################
 
@@ -180,7 +429,7 @@ utilityglm <- function (formula, family, prior, criterion = c("D", "A", "E", "SI
         }
       inte <- function(d, B) {
         x <- model.matrix(object = formula, data = data.frame(d))
-        v <- utilglm(x = x, beta = abscissas, family = "binomial", criterion = criterion)
+        v <- utilglm(x = x, beta = abscissas, family = family, criterion = criterion)
         weighted.mean(v, weights)
       }
     } else {
@@ -2086,4 +2335,429 @@ weight[1]<-weight[1]*(1+s)#as described by cassity et al 'incorporate factor 1+s
 					# (checking against the tables...)
 return(weight) 
 }
+
+##### pace ######################
+
+pace<-function(utility, start.d, B, Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1,
+	limits = NULL, binary = FALSE, deterministic = FALSE, mc.cores = 1, n.assess = 20){
+
+ptm<-proc.time()[3]	
+	
+C<-length(start.d)
+
+if (missing(B) && identical(deterministic, FALSE)){ 
+        B <- c(20000, 1000)}
+if (missing(B) && identical(deterministic, TRUE)){ 
+        B <- NULL}
+
+innerace<-function(d){
+out<-ace(utility = utility, start.d = d, B = B, Q = Q, N1 = N1, N2 = N2, lower = lower,
+	upper = upper, limits = limits, binary = binary, deterministic = deterministic, progress = FALSE)
+list(phase2.d=out$phase2.d,phase1.trace=out$phase1.trace,phase2.trace=out$phase2.trace)}
+
+if(.Platform$OS.type=="unix"){
+rout<-mclapply(start.d, innerace, mc.cores = mc.cores)} else{
+if(mc.cores==1){
+rout<-lapply(start.d, innerace)}
+if(mc.cores>1){
+warning("mc.cores > 1 not currently supported under a non-Unix OS. Proceeding with mc.cores = 1 \n")
+rout<-lapply(start.d, innerace)}
+}
+
+# cl <- makeCluster(getOption("cl.cores", mc.cores))
+# clusterExport(cl, list("ace","utility", "start.d", "B", "Q", "N1", "N2", "lower","upper","limits", "binary","deterministic"), envir=environment())
+# rout<-parLapply(cl = cl, X = start.d, fun = innerace)
+# stopCluster(cl)
+
+routd<-list()
+routphase1<-list()
+routphase2<-list()
+for(i in 1:C){
+routd[[i]]<-rout[[i]]$phase2.d	
+routphase1[[i]]<-rout[[i]]$phase1.trace	
+routphase2[[i]]<-rout[[i]]$phase2.trace}
+	
+if(!deterministic){
+inner<-function(d){
+evals<-rep(0,n.assess)	
+for(i in 1:n.assess){
+evals[i]<-mean(utility(d = d, B = B[1]))}
+evals}
+
+if(.Platform$OS.type=="unix"){
+fout<-mclapply(routd, inner, mc.cores = mc.cores)} else{
+if(mc.cores==1){
+fout<-lapply(routd, inner)}
+if(mc.cores>1){
+#warning("mc.cores > 1 not currently supported under a non-Unix OS. Proceeding with mc.cores = 1 \n")
+fout<-lapply(routd, inner)}
+}
+
+# cl <- makeCluster(getOption("cl.cores", mc.cores))
+# clusterExport(cl, list("utility", "routd", "B"), envir=environment())
+# fout<-parLapply(cl = cl, X = routd, fun = inner)
+# stopCluster(cl)
+
+mout<-lapply(fout, mean)
+besti<-which.max(mout)}	
+if(deterministic){
+inner<-function(d){
+utility(d = d, B = B)}
+
+if(.Platform$OS.type=="unix"){
+fout<-mclapply(routd, inner, mc.cores = mc.cores)} else{
+if(mc.cores==1){
+fout<-lapply(routd, inner)}
+if(mc.cores>1){
+#warning("mc.cores > 1 not currently supported under a non-Unix OS. Proceeding with mc.cores = 1 \n")
+fout<-lapply(routd, inner)}
+}
+
+# cl <- makeCluster(getOption("cl.cores", mc.cores))
+# clusterExport(cl, list("utility", "routd", "B"), envir=environment())
+# fout<-parLapply(cl = cl, X = routd, fun = inner)
+# stopCluster(cl)
+
+besti<-which.max(fout)}	
+
+ptm<-proc.time()[3]-ptm
+
+phase1.trace<-NULL
+phase2.trace<-NULL
+if(N1>0){phase1.trace<-routphase1[[besti]]}
+if(N2>0){phase2.trace<-routphase2[[besti]]}
+
+output<-list(d = routd[[besti]], phase1.trace = phase1.trace, 
+phase2.trace = phase2.trace, eval = fout[[besti]],
+utility = utility, start.d = start.d, final.d = routd, besti = besti,
+B = B, Q = Q, N1 = N1, N2 = N2, glm = FALSE, nlm = FALSE, criterion = "NA",
+prior = "NA", time = ptm, binary = binary, deterministic = deterministic)	
+class(output)<-"pace"
+output
+}
+
+####### paceglm ##############
+
+paceglm<-function(formula, start.d, family, prior, B, criterion = c("D", "A", "E", "SIG", "NSEL", "SIG-Norm", "NSEL-Norm"), 
+	method = c("quadrature", "MC"), Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1,
+	limits = NULL, mc.cores = 1, n.assess = 20){
+
+ptm<-proc.time()[3]	
+	
+C<-length(start.d)
+
+criterion <- match.arg(criterion)
+  if(length(method) > 1) {
+    method = switch(EXPR=criterion,
+                    D = "quadrature",
+                    A = "quadrature",
+                    E = "quadrature",
+                    "MC")
+  } 
+  method <- match.arg(method)
+  if(identical(method, "MC") && !is.function(prior)) stop("For method = \"MC\", argument prior must specify a function.") 
+
+if(missing(B)) {
+   B <- switch(method,
+          MC = c(20000, 1000),
+          quadrature = c(2, 8))
+}
+  
+utilobj <- utilityglm(formula = formula, family = family, prior = prior, 
+                         criterion = criterion, method = method, nrq = B) 
+  
+inte <- function(d, B) {
+    utilobj$utility(d, B)
+}
+
+ deterministic <- FALSE
+  if(identical(method, "quadrature")) deterministic <- TRUE
+    
+innerace<-function(d){
+out<-aceglm(formula=formula, start.d = d, family=family, prior = prior, B = B, 
+	criterion = criterion, method = method, Q = Q, N1 = N1, N2 = N2, lower = lower,
+	upper = upper, limits = limits, progress = FALSE)
+list(phase2.d=out$phase2.d,phase1.trace=out$phase1.trace,phase2.trace=out$phase2.trace)}
+
+if(.Platform$OS.type=="unix"){
+rout<-mclapply(start.d, innerace, mc.cores = mc.cores)} else{
+if(mc.cores==1){
+rout<-lapply(start.d, innerace)}
+if(mc.cores>1){
+warning("mc.cores > 1 not currently supported under a non-Unix OS. Proceeding with mc.cores = 1 \n")
+rout<-lapply(start.d, innerace)}
+}
+# cl <- makeCluster(getOption("cl.cores", mc.cores))
+# clusterExport(cl, list("aceglm","formula", "start.d", "family", "prior", "B", "criterion", "method", "Q", "N1", "N2", "lower","upper","limits"), envir=environment())
+# rout<-parLapply(cl = cl, X = start.d, fun = innerace)
+# stopCluster(cl)
+
+routd<-list()
+routphase1<-list()
+routphase2<-list()
+for(i in 1:C){
+routd[[i]]<-rout[[i]]$phase2.d	
+routphase1[[i]]<-rout[[i]]$phase1.trace	
+routphase2[[i]]<-rout[[i]]$phase2.trace}
+	
+if(!deterministic){
+inner<-function(d){
+evals<-rep(0,n.assess)	
+for(i in 1:n.assess){
+evals[i]<-mean(inte(d = d, B = B[1]))}
+evals}
+
+if(.Platform$OS.type=="unix"){
+fout<-mclapply(routd, inner, mc.cores = mc.cores)} else{
+if(mc.cores==1){
+fout<-lapply(routd, inner)}
+if(mc.cores>1){
+#warning("mc.cores > 1 not currently supported under a non-Unix OS. Proceeding with mc.cores = 1 \n")
+fout<-lapply(routd, inner)}
+}
+# cl <- makeCluster(getOption("cl.cores", mc.cores))
+# clusterExport(cl, list("inte", "routd", "B"), envir=environment())
+# fout<-parLapply(cl = cl, X = routd, fun = inner)
+# stopCluster(cl)
+mout<-lapply(fout, mean)
+besti<-which.max(mout)}	
+if(deterministic){
+inner<-function(d){
+inte(d = d, B = B)}
+if(.Platform$OS.type=="unix"){
+fout<-mclapply(routd, inner, mc.cores = mc.cores)} else{
+if(mc.cores==1){
+fout<-lapply(routd, inner)}
+if(mc.cores>1){
+#warning("mc.cores > 1 not currently supported under a non-Unix OS. Proceeding with mc.cores = 1 \n")
+fout<-lapply(routd, inner)}
+}
+# cl <- makeCluster(getOption("cl.cores", mc.cores))
+# clusterExport(cl, list("inte", "routd", "B"), envir=environment())
+# fout<-parLapply(cl = cl, X = routd, fun = inner)
+# stopCluster(cl)
+besti<-which.max(fout)}	
+
+ptm<-proc.time()[3]-ptm
+
+phase1.trace<-NULL
+phase2.trace<-NULL
+if(N1>0){phase1.trace<-routphase1[[besti]]}
+if(N2>0){phase2.trace<-routphase2[[besti]]}
+
+output<-list(d = routd[[besti]], phase1.trace = phase1.trace, 
+phase2.trace = phase2.trace, eval = fout[[besti]],
+utility = inte, start.d = start.d, final.d = routd, besti = besti,
+B = B, Q = Q, N1 = N1, N2 = N2, glm = TRUE, nlm = FALSE, criterion = criterion,
+prior = prior, time = ptm, binary = FALSE, deterministic = deterministic,
+method = method, family = family, formula = formula)	
+class(output)<-"pace"
+output
+}
+
+##### pacenlm #####
+
+pacenlm<-function(formula, start.d, prior, B, criterion = c("D", "A", "E", "SIG", "NSEL"), 
+	method = c("quadrature", "MC"), Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1,
+	limits = NULL, mc.cores = 1, n.assess = 20){
+
+ptm<-proc.time()[3]	
+	
+C<-length(start.d)
+
+criterion <- match.arg(criterion)
+  if(length(method) > 1) {
+    method = switch(EXPR=criterion,
+                    D = "quadrature",
+                    A = "quadrature",
+                    E = "quadrature",
+                    "MC")
+  } 
+  method <- match.arg(method)
+  if(identical(method, "MC") && !is.function(prior)) stop("For method = \"MC\", argument prior must specify a function.") 
+
+if(missing(B)) {
+   B <- switch(method,
+          MC = c(20000, 1000),
+          quadrature = c(2, 8))
+}
+  
+utilobj <- utilitynlm(formula = formula, prior = prior, desvars = dimnames(start.d[[1]])[[2]],
+                         criterion = criterion, method = method, nrq = B) 
+  
+ deterministic <- FALSE
+  if(identical(method, "quadrature")) deterministic <- TRUE
+    
+innerace<-function(d){
+out<-acenlm(formula=formula, start.d = d, prior = prior, B = B, 
+	criterion = criterion, method = method, Q = Q, N1 = N1, N2 = N2, lower = lower,
+	upper = upper, limits = limits, progress = FALSE)
+list(phase2.d=out$phase2.d,phase1.trace=out$phase1.trace,phase2.trace=out$phase2.trace, utility = out$utility)}
+
+if(.Platform$OS.type=="unix"){
+rout<-mclapply(start.d, innerace, mc.cores = mc.cores)} else{
+if(mc.cores==1){
+rout<-lapply(start.d, innerace)}
+if(mc.cores>1){
+warning("mc.cores > 1 not currently supported under a non-Unix OS. Proceeding with mc.cores = 1 \n")
+rout<-lapply(start.d, innerace)}
+}
+
+# cl <- makeCluster(getOption("cl.cores", mc.cores))
+# clusterExport(cl, list("acenlm","formula", "start.d", "prior", "B", "criterion", "method", "Q", "N1", "N2", "lower","upper","limits"), envir=environment())
+# rout<-parLapply(cl = cl, X = start.d, fun = innerace)
+# stopCluster(cl)
+
+routd<-list()
+routphase1<-list()
+routphase2<-list()
+for(i in 1:C){
+routd[[i]]<-rout[[i]]$phase2.d	
+routphase1[[i]]<-rout[[i]]$phase1.trace	
+routphase2[[i]]<-rout[[i]]$phase2.trace}
+
+inte<-function(d, B){
+rout[[1]]$utility(d=d,B=B)}	
+	
+if(!deterministic){
+inner<-function(d){
+evals<-rep(0,n.assess)	
+for(i in 1:n.assess){
+evals[i]<-mean(inte(d = d, B = B[1]))}
+evals}
+
+if(.Platform$OS.type=="unix"){
+fout<-mclapply(routd, inner, mc.cores = mc.cores)} else{
+if(mc.cores==1){
+fout<-lapply(routd, inner)}
+if(mc.cores>1){
+#warning("mc.cores > 1 not currently supported under a non-Unix OS. Proceeding with mc.cores = 1 \n")
+fout<-lapply(routd, inner)}
+}
+
+# cl <- makeCluster(getOption("cl.cores", mc.cores))
+# clusterExport(cl, list("inte", "routd", "B"), envir=environment())
+# fout<-parLapply(cl = cl, X = routd, fun = inner)
+# stopCluster(cl)
+
+mout<-lapply(fout, mean)
+besti<-which.max(mout)}	
+if(deterministic){
+inner<-function(d){
+inte(d = d, B = B)}
+
+if(.Platform$OS.type=="unix"){
+fout<-mclapply(routd, inner, mc.cores = mc.cores)} else{
+if(mc.cores==1){
+fout<-lapply(routd, inner)}
+if(mc.cores>1){
+#warning("mc.cores > 1 not currently supported under a non-Unix OS. Proceeding with mc.cores = 1 \n")
+fout<-lapply(routd, inner)}
+}
+
+# cl <- makeCluster(getOption("cl.cores", mc.cores))
+# clusterExport(cl, list("inte", "routd", "B"), envir=environment())
+# fout<-parLapply(cl = cl, X = routd, fun = inner)
+# stopCluster(cl)
+besti<-which.max(fout)}	
+
+ptm<-proc.time()[3]-ptm
+
+phase1.trace<-NULL
+phase2.trace<-NULL
+if(N1>0){phase1.trace<-routphase1[[besti]]}
+if(N2>0){phase2.trace<-routphase2[[besti]]}
+
+output<-list(d = routd[[besti]], phase1.trace = phase1.trace, 
+phase2.trace = phase2.trace, eval = fout[[besti]],
+utility = inte, start.d = start.d, final.d = routd, besti = besti,
+B = B, Q = Q, N1 = N1, N2 = N2, glm = FALSE, nlm = TRUE, criterion = criterion,
+prior = prior, time = ptm, binary = FALSE, deterministic = deterministic,
+method = method, formula = formula)	
+class(output)<-"pace"
+output
+}
+
+### pace generics #####
+
+print.pace<-function(x, ...){
+	
+hrs<-round(x$time%/%3600,0)
+mins<-round((x$time%%3600)%/%60,0)
+secs<-round((x$time%%3600)%%60,0)
+hrs<-ifelse(hrs<10,paste("0",hrs,sep=""),hrs)
+mins<-ifelse(mins<10,paste("0",mins,sep=""),mins)
+secs<-ifelse(secs<10,paste("0",secs,sep=""),secs)
+
+if(x$glm==TRUE){
+  cat("Generalised Linear Model \n")
+  cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")
+  cat("Formula: "); print(x$formula)
+  print(x$family())
+  cat("Method: ", x$method, "\n\n")
+  if(identical(x$method, "MC")) cat("B: ", x$B, "\n\n")
+  else {
+    cat("nr = ", x$B[[1]], ", nq = ", x$B[[2]],"\n")
+    if(identical(names(x$prior)[1:2], c("mu", "sigma2"))) cat("Prior: normal\n\n")
+    if(identical(names(x$prior)[1], "support")) cat("Prior: uniform\n\n")       
+  }
+} 
+if(x$nlm==TRUE){
+  cat("Non Linear Model \n")
+  cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")
+  cat("Formula: "); print(x$formula)
+  cat("Method: ", x$method, "\n\n")
+  if(identical(x$method, "MC")) cat("B: ", x$B, "\n\n")
+  else {
+    cat("nr = ", x$B[[1]], ", nq = ", x$B[[2]],"\n")
+    if(identical(names(x$prior)[1:2], c("mu", "sigma2"))) cat("Prior: normal\n\n")
+    if(identical(names(x$prior)[1], "support")) cat("Prior: uniform\n\n")       
+  }
+} 
+if(x$nlm==FALSE & x$glm==FALSE){
+cat("User-defined model & utility \n")}
+#cat("\n")
+cat("Number of repetitions = ",length(x$start.d),"\n",sep="")
+cat("\n")
+cat("Number of runs = ",dim(x$d)[1],"\n",sep="")
+cat("\n")
+cat("Number of factors = ",dim(x$d)[2],"\n",sep="")
+cat("\n")
+cat("Number of Phase I iterations = ",x$N1,"\n",sep="")
+cat("\n")
+cat("Number of Phase II iterations = ",x$N2,"\n",sep="")
+cat("\n")
+cat("Computer time = ",paste(hrs,":",mins,":",secs,sep=""),"\n",sep="")
+
+}
+
+summary.pace<-function(object,...){
+
+print.pace(x=object)}
+
+plot.pace<-function(x,...){
+
+if(length(x$phase1.trace)>0 & length(x$phase2.trace)>0){
+ulim<-max(c(x$phase1.trace,x$phase2.trace))
+llim<-min(c(x$phase1.trace,x$phase2.trace))
+plot(0:(length(x$phase1.trace)-1),x$phase1.trace,xlab="Phase I iteration",ylab="Observation of expected utility",ylim=c(llim,ulim),type="l",xlim=c(0,length(x$phase1.trace)))
+new_z<-axTicks(side=1)
+new_x<-(1:length(x$phase2.trace))*((length(x$phase1.trace)-1)/length(x$phase2.trace))
+lines(new_x,x$phase2.trace,col=8)
+legend(x="bottomright",legend=c("Phase I","Phase II"),col=c(1,8),lty=c(1,1),bty="n")
+axis(side=3,labels=new_z/((length(x$phase1.trace)-1)/length(x$phase2.trace)),at=new_z)
+mtext("Phase II iteration", side=3, line = par("mgp")[1]) }
+
+if(length(x$phase1.trace)>0 & length(x$phase2.trace)==0){
+plot(0:(length(x$phase1.trace)-1),x$phase1.trace,type="l",xlab="Phase I iteration",ylab="Observation of expected utility")
+legend(x="bottomright",legend=c("Phase I"),col=1,lty=1,bty="n") }
+
+if(length(x$phase1.trace)==0 & length(x$phase2.trace)>0){
+plot(1:length(x$phase2.trace),x$phase2.trace,type="l",xlab="Phase II iteration",ylab="Observation of expected utility",col=8)
+legend(x="bottomright",legend=c("Phase II"),col=8,lty=1,bty="n") }
+
+}
+
+
+
 

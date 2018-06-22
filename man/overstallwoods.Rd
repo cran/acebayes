@@ -226,7 +226,7 @@ O'Hagan, A, & Forster, J.J. (2004). \emph{Kendall's Advanced Theory of Statistic
 Inference. 2nd edition}. John Wiley & Sons.
 
 Overstall, A.M. & Woods, D.C. (2017). Bayesian design of experiments using
-approximate coordinate exchange. \emph{Technometrics}, in press. (\emph{arXiv:1501.00264}).
+approximate coordinate exchange. \emph{Technometrics}, \bold{59}, 458-470.
 
 Ryan, E., Drovandi, C., Thompson, M., Pettitt, A. (2014). Towards Bayesian experimental design
 for nonlinear models that require a large number of sampling times. \emph{Computational
@@ -241,7 +241,7 @@ Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Ad
 }
 
 \seealso{
-\code{\link{ace}}.
+\code{\link{ace}}, \code{\link{pace}}.
 }
 \examples{
 

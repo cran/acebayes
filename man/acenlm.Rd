@@ -1,17 +1,22 @@
 \name{acenlm}
 \alias{acenlm}
+\alias{pacenlm}
 
 \title{
 Approximate Coordinate Exchange (ACE) Algorithm for Non-Linear Models
 }
 \encoding{UTF-8}
 \description{
-This function implements the approximate coordinate exchange algorithm (Overstall & Woods, 2017) for finding optimal Bayesian designs for non-linear regression models.
+Function implementing the approximate coordinate exchange algorithm (Overstall & Woods, 2017) for finding optimal Bayesian designs for non-linear regression models.
 }
 \usage{
 acenlm(formula, start.d, prior, B, criterion = c("D", "A", "E", "SIG", "NSEL"), 
 method = c("quadrature", "MC"),  Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, 
 progress = FALSE, limits = NULL)
+
+pacenlm(formula, start.d, prior, B, criterion = c("D", "A", "E", "SIG", "NSEL"), 
+method = c("quadrature", "MC"),  Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, 
+limits = NULL, mc.cores = 1, n.assess = 20)
 }
 
 \arguments{
@@ -19,7 +24,9 @@ progress = FALSE, limits = NULL)
 An object of class \code{"formula"}: a symbolic description of the model. The terms should correspond to the column names of the argument \code{start.d} and the argument \code{prior}.
 }
   \item{start.d}{
-An \code{n} by \code{k} matrix with column names used by the argument \code{formula}.
+For \code{aceglm}, an \code{n} by \code{k} matrix, with column names used by the argument \code{formula}, specifying the initial design for the ACE algorithm.
+
+For \code{paceglm}, a list with each element, an \code{n} by \code{k} matrix, with column names used by the argument \code{formula}, specifying the initial design for each repetition of the ACE algorithm.
 }
 	\item{prior}{
 An argument specifying the prior distribution.  	
@@ -78,9 +85,14 @@ An argument specifying the design space. This argument can either be a scalar or
   \item{limits}{
 An argument specifying the grid over which to maximise the Gaussian process emulator for the expected utility function. It should be a function with three arguments: \code{i}, \code{j} and \code{d} which generates a one-dimensional grid for the \code{ij}th coordinate of the design when the current design is \code{d}. The default value is NULL which generates values uniformly on the interval \code{(lower[i,j],upper[i,j])} or \code{(lower,upper)} depending on whether the arguments \code{lower} and \code{upper} are matrices or scalars, respectively.
 }
+\item{mc.cores}{
+The number of cores to use, i.e. at most how many child processes will be run simultaneously. Must be at least one (the default), and parallelisation requires at least two cores. See \code{\link[parallel]{mclapply}} for more information and warnings for \code{mc.cores} > 1. 	
+}
+\item{n.assess}{
+If \code{method = "MC"}, the approximate expected utility for the design from each repetition of the ACE algorithm will be calculated \code{n.assess} times. The terminal design returned will be the design with the largest mean approximate expected utility calculated over the \code{n.assess} approximations.}
 }
 \details{
-This function implements the ACE algorithm to find designs for general classes of nonlinear regression models with identically and independently normally distributed errors meaning the user does not have to write their own utility function.
+The \code{acenlm} function implements the ACE algorithm to find designs for general classes of nonlinear regression models with identically and independently normally distributed errors meaning the user does not have to write their own utility function.
 
 Two utility functions are implemented.
 \enumerate{
@@ -116,10 +128,15 @@ where \eqn{e()}{e()} denotes the function that calculates the eigenvalues of its
 The expected utilities can be approximated using Monte Carlo methods (\code{method = "MC"} for all criteria) or using a deterministic quadrature method (\code{method = "quadrature"}, implemented for the D, A and E criteria). The former approach approximates the expected utility via sampling from the prior. The latter approach uses a radial-spherical integration rule (Monahan and Genz, 1997) and \code{B[1]} specifies the number, \eqn{n_r}{n_r}, of radial abscissas and \code{B[2]} specifies the number,  \eqn{n_q}{n_q}, of random rotations. Larger values of  \eqn{n_r}{n_r} will produce more accurate, but also more computationally expensive, approximations. See Gotwalt et al. (2009) for further details.   
 
 For more details on the ACE algorithm, see Overstall & Woods (2017).
+
+Similar to all coordinate exchange algorithms, ACE should be repeated from different initial designs. The function 
+\code{pacenlm} will implement this where the initial designs are given by a list via the argument \code{start.d}. On the completion 
+of the repetitions of ACE, \code{pacenlm} will approximate the expected utility for all final designs and return the design (the terminal design) with the 
+largest approximate expected utility.
 }
 
 \value{
-The function will return an object of class \code{"ace"} which is a list with the following components:
+The function will return an object of class \code{"ace"} (for \code{acenlm}) or \code{"pace"} (for \code{pacenlm})  which is a list with the following components:
 \item{utility}{
 The utility function resulting from the choice of arguments.
 }
@@ -174,6 +191,20 @@ Computational time (in seconds) to run the ACE algorithm.
 \item{binary}{
 The argument \code{binary}. Will be \code{FALSE} for the utility functions currently implemented.
 }
+\item{d}{
+The terminal design (\code{pacenlm} only).
+}
+\item{eval}{
+If \code{deterministic = "MC"}, a vector containing \code{n.assess} approximations to the expected utility for the terminal design (\code{pacenlm} only).
+
+If \code{deterministic = "quadrature"}, a scalar giving the approximate expected utility for the terminal design (\code{pacenlm} only).
+}
+\item{final.d}{
+A list of the same length as the argument \code{start.d}, where each element is the final design (i.e. \code{phase2.d}) for each repetition of the ACE algorithm (\code{pacenlm} only).
+}
+\item{besti}{
+A scalar indicating which repetition of the ACE algorithm resulted in the terminal design (\code{pacenlm} only).
+}
 }
 
 \references{
@@ -189,7 +220,7 @@ Monahan, J. and Genz, A. (1997). Spherical-radial integration rules for
 Bayesian computation,” Journal of the American Statistical Association, 92, 664–674.
 
 Overstall, A.M. & Woods, D.C. (2017). Bayesian design of experiments using
-approximate coordinate exchange. \emph{Technometrics}, in press. (\emph{arXiv:1501.00264}).
+approximate coordinate exchange. \emph{Technometrics}, \bold{59}, 458-470.
 }
 
 \author{
@@ -201,7 +232,7 @@ This is a wrapper function for \code{\link{ace}}.
 }
 
 \seealso{
-\code{\link{ace}}, \code{\link{aceglm}}.
+\code{\link{ace}}, \code{\link{aceglm}}, \code{\link{pace}}, \code{\link{paceglm}}.
 }
 \examples{
 ## This example uses aceglm to find a Bayesian D-optimal design for a 

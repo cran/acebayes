@@ -26,17 +26,32 @@ points.
 \tabular{ll}{
 Package: \tab acebayes\cr
 Type: \tab Package\cr
-Version: \tab 1.4.1\cr
-Date: \tab 2017-07-13\cr
+Version: \tab 1.5\cr
+Date: \tab 2018-06-22\cr
 License: \tab GPL-2\cr
 }
-The most important functions are \code{\link{ace}}, \code{\link{aceglm}} and \code{\link{acenlm}}.
+The most important functions are as follows.
 
-The function \code{\link{ace}} implements both phases of the ACE algorithm. It has two mandatory arguments: \code{utility} (a function specifying the chosen utility function incorporating the joint distribution of unknown quantities) and \code{start.d} (the initial design). The function will return the final design from the algorithm, along with information to assess convergence.
+\enumerate{
+\item
+\code{\link{ace}}
+\item
+\code{\link{pace}}
+\item
+\code{\link{aceglm}}
+\item
+\code{\link{paceglm}}
+\item
+\code{\link{acenlm}}
+\item
+\code{\link{pacenlm}}
+}
 
-The computational time of \code{\link{ace}} is highly dependent on the computational time required to evaluate the user-supplied function \code{utility}. Therefore it is recommended that users take advantage of \code{R} packages such as \code{Rcpp} (Eddelbuettel & Francois, 2011), \code{RcppArmadillo} (Eddelbuettel & Sanderson, 2014), or \code{RcppEigen} (Bates & Eddelbuettel, 2013), that provide convenient interfaces to compiled programming languages.
+The function \code{\link{ace}} implements both phases of the ACE algorithm. It has two mandatory arguments: \code{utility} (a function specifying the chosen utility function incorporating the joint distribution of unknown quantities) and \code{start.d} (the initial design). The function will return the final design from the algorithm, along with information to assess convergence. The function \code{link{pace}} implements repetitions of the ACE algorithm from different starting designs (as specified by the \code{start.d} argument).
 
-The functions \code{\link{aceglm}} and \code{\link{acenlm}} are user-friendly wrapper functions for \code{\link{ace}} which use the ACE algorithm to find Bayesian optimal experimental designs for generalised linear models and non-linear models, respectively. As special cases, both of these functions can find pseudo-Bayesian optimal designs.
+The computational time of \code{\link{ace}} (and \code{\link{pace}}) is highly dependent on the computational time required to evaluate the user-supplied function \code{utility}. Therefore it is recommended that users take advantage of \code{R} packages such as \code{Rcpp} (Eddelbuettel & Francois, 2011), \code{RcppArmadillo} (Eddelbuettel & Sanderson, 2014), or \code{RcppEigen} (Bates & Eddelbuettel, 2013), that provide convenient interfaces to compiled programming languages.
+
+The functions \code{\link{aceglm}} and \code{\link{acenlm}} are user-friendly wrapper functions for \code{\link{ace}} which use the ACE algorithm to find Bayesian optimal experimental designs for generalised linear models and non-linear models, respectively. As special cases, both of these functions can find pseudo-Bayesian optimal designs. The functions \code{\link{paceglm}} and \code{\link{pacenlm}} implement repetitions of the ACE algorithm from different starting designs (as specified by the \code{start.d} argument) for generalised linear models and non-linear models, respectively.
 
 For more details on the underpinning methodology, see Overstall & Woods (2017).
 }
@@ -63,7 +78,7 @@ Meyer, R. & Nachtsheim, C. (1995). The Coordinate Exchange Algorithm for Constru
 Optimal Experimental Designs. \emph{Technometrics}, \bold{37}, 60-69.
 
 Overstall, A.M. & Woods, D.C. (2017). Bayesian design of experiments using
-approximate coordinate exchange. \emph{Technometrics}, in press. (\emph{arXiv:1501.00264}).
+approximate coordinate exchange. \emph{Technometrics}, \bold{59}, 458-470.
 }
 
 \keyword{package}

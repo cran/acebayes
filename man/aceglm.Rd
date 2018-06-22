@@ -1,18 +1,24 @@
 \name{aceglm}
 \alias{aceglm}
+\alias{paceglm}
 
 \title{
 Approximate Coordinate Exchange (ACE) Algorithm for Generalised Linear Models
 }
 \encoding{UTF-8}
 \description{
-This function implements the approximate coordinate exchange (ACE) algorithm (Overstall & Woods, 2017) for finding Bayesian optimal experimental designs for generalised linear models (GLMs).
+Functions implementing the approximate coordinate exchange (ACE) algorithm (Overstall & Woods, 2017) for finding Bayesian optimal experimental designs for generalised linear models (GLMs).
 }
 \usage{
 aceglm(formula, start.d, family, prior, B, 
 criterion = c("D", "A", "E", "SIG", "NSEL", "SIG-Norm", "NSEL-Norm"),
 method = c("quadrature", "MC"), Q = 20, N1 = 20, N2 = 100, lower = -1, 
 upper = 1, progress = FALSE, limits = NULL)
+
+paceglm(formula, start.d, family, prior, B, 
+criterion = c("D", "A", "E", "SIG", "NSEL", "SIG-Norm", "NSEL-Norm"),
+method = c("quadrature", "MC"), Q = 20, N1 = 20, N2 = 100, lower = -1, 
+upper = 1, limits = NULL, mc.cores = 1, n.assess = 20)
 }
 
 \arguments{
@@ -20,7 +26,9 @@ upper = 1, progress = FALSE, limits = NULL)
 An object of class \code{"formula"}: a symbolic description of the model. The terms should correspond to the column names of the argument \code{start.d}.
 }
   \item{start.d}{
-An \code{n} by \code{k} matrix with column names used by the argument \code{formula}.
+For \code{aceglm}, an \code{n} by \code{k} matrix, with column names used by the argument \code{formula}, specifying the initial design for the ACE algorithm.
+
+For \code{paceglm}, a list with each element, an \code{n} by \code{k} matrix, with column names used by the argument \code{formula}, specifying the initial design for each repetition of the ACE algorithm.
 }
 	\item{family}{
 A description of the error distribution and link function to be used in the model. This can be a character string naming a family function, a family function or the result of a call to a family function. (See \code{\link{family}} for details of family functions.)
@@ -36,9 +44,9 @@ For \code{method = "quadrature"}, a list specifying a normal or uniform prior fo
  \item{B}{
 An optional argument for controlling the approximation to the expected utility. It should be a vector of length two. 
 
-For \code{criterion = "MC"}, it specifies the size of the Monte Carlo samples, generated from the joint distribution of unknown quantities. The first sample size, \code{B[1]}, gives the sample size to use in the comparison procedures, and the second sample size, \code{B[2]}, gives the sample size to use for the evaluations of Monte Carlo integration that are used to fit the Gaussian process emulator. If left unspecified, the default value is \code{c(20000,1000)}.
+For \code{method = "MC"}, it specifies the size of the Monte Carlo samples, generated from the joint distribution of unknown quantities. The first sample size, \code{B[1]}, gives the sample size to use in the comparison procedures, and the second sample size, \code{B[2]}, gives the sample size to use for the evaluations of Monte Carlo integration that are used to fit the Gaussian process emulator. If left unspecified, the default value is \code{c(20000,1000)}.
 
-For \code{criterion = "quadrature"}, it specifies the tuning parameters (numbers of radial abscissas and random rotations) for the implemented quadrature method; see \bold{Details} for more information. If left unspecified, the default value is \code{c(2, 8)}.
+For \code{method = "quadrature"}, it specifies the tuning parameters (numbers of radial abscissas and random rotations) for the implemented quadrature method; see \bold{Details} for more information. If left unspecified, the default value is \code{c(2, 8)}.
 }
 	\item{criterion}{
 An optional character argument specifying the utility function. There are currently seven utility functions implemented as follows:
@@ -87,9 +95,14 @@ A logical argument indicating whether the iteration number and other information
   \item{limits}{
 An argument specifying the grid over which to maximise the Gaussian process emulator for the expected utility function. It should be a function with three arguments: \code{i}, \code{j} and \code{d} which generates a one-dimensional grid for the \code{ij}th coordinate of the design when the current design is \code{d}. The default value is NULL which generates values uniformly on the interval \code{(lower[i,j],upper[i,j])} or \code{(lower,upper)} depending on whether the arguments \code{lower} and \code{upper} are matrices or scalars, respectively.
 }
+\item{mc.cores}{
+The number of cores to use, i.e. at most how many child processes will be run simultaneously. Must be at least one (the default), and parallelisation requires at least two cores. See \code{\link[parallel]{mclapply}} for more information and warnings for \code{mc.cores} > 1. 	
+}
+\item{n.assess}{
+If \code{method = "MC"}, the approximate expected utility for the design from each repetition of the ACE algorithm will be calculated \code{n.assess} times. The terminal design returned will be the design with the largest mean approximate expected utility calculated over the \code{n.assess} approximations.}
 }
 \details{
-This function implements the ACE algorithm to find designs for the class of generalised linear models (GLMs) for certain cases of utility function meaning the user does not have to write their own utility function.
+The \code{aceglm} function implements the ACE algorithm to find designs for the class of generalised linear models (GLMs) for certain cases of utility function meaning the user does not have to write their own utility function.
 
 Two utility functions are implemented.
 \enumerate{
@@ -127,10 +140,15 @@ The expected utilities can be approximated using Monte Carlo methods (\code{meth
 Note that the utility functions for SIG and NSEL are currently only implemented for logistic regression, i.e. \code{family = binomial}, or Poisson regression, i.e. \code{family = poisson(link="log")}, whereas the utility functions for pseudo-Bayesian designs are implemented for generic GLM families.
 
 For more details on the ACE algorithm, see Overstall & Woods (2017).
+
+Similar to all coordinate exchange algorithms, ACE should be repeated from different initial designs. The function 
+\code{paceglm} will implement this where the initial designs are given by a list via the argument \code{start.d}. On the completion 
+of the repetitions of ACE, \code{paceglm} will approximate the expected utility for all final designs and return the design (the terminal design) with the 
+largest approximate expected utility.
 }
 
 \value{
-The function will return an object of class \code{"ace"} which is a list with the following components:
+The function will return an object of class \code{"ace"} (for \code{aceglm}) or \code{"pace"} (for \code{paceglm})  which is a list with the following components:
 
 \item{utility}{
 The utility function resulting from the choice of arguments.
@@ -189,6 +207,20 @@ Computational time (in seconds) to run the ACE algorithm.
 \item{binary}{
 The argument \code{binary}. Will be \code{FALSE} for the utility functions currently implemented.
 }
+\item{d}{
+The terminal design (\code{paceglm} only).
+}
+\item{eval}{
+If \code{deterministic = "MC"}, a vector containing \code{n.assess} approximations to the expected utility for the terminal design (\code{paceglm} only).
+
+If \code{deterministic = "quadrature"}, a scalar giving the approximate expected utility for the terminal design (\code{paceglm} only).
+}
+\item{final.d}{
+A list of the same length as the argument \code{start.d}, where each element is the final design (i.e. \code{phase2.d}) for each repetition of the ACE algorithm (\code{paceglm} only).
+}
+\item{besti}{
+A scalar indicating which repetition of the ACE algorithm resulted in the terminal design (\code{paceglm} only).
+}
 }
 
 \references{
@@ -204,9 +236,9 @@ Monahan, J. and Genz, A. (1997). Spherical-radial integration rules for
 Bayesian computation,” Journal of the American Statistical Association, 92, 664–674.
 
 Overstall, A.M. & Woods, D.C. (2017). Bayesian design of experiments using
-approximate coordinate exchange. \emph{Technometrics}, in press. (\emph{arXiv:1501.00264}).
+approximate coordinate exchange. \emph{Technometrics}, \bold{59}, 458-470.
 
-Overstall, A.M., McGree, J.M. & Drovandi, C.C. (2017). An approach for finding fully Bayesian optimal designs using normal-based approximations to loss functions. \emph{Statistics and Computing}, in press, \emph{arXiv:1608.05815}.
+Overstall, A.M., McGree, J.M. & Drovandi, C.C. (2018). An approach for finding fully Bayesian optimal designs using normal-based approximations to loss functions. \emph{Statistics and Computing}, \bold{28}(2), 343-358.
 }
 
 \author{
@@ -218,7 +250,7 @@ This is a wrapper function for \code{\link{ace}}.
 }
 
 \seealso{
-\code{\link{ace}}, \code{\link{acenlm}}.
+\code{\link{ace}}, \code{\link{acenlm}}, \code{\link{pace}}, \code{\link{pacenlm}}.
 }
 \examples{
 ## This example uses aceglm to find a Bayesian D-optimal design for a 
@@ -251,7 +283,7 @@ example1<-aceglm(formula=~x1+x2+x3+x4, start.d = start.d, family = binomial,
 prior = prior, method = "MC", N1 = 1, N2 = 0, B = c(1000, 1000))
 ## Call the aceglm function which implements the ACE algorithm requesting 
 ## only one iteration of Phase I and zero iterations of Phase II. The Monte
-## Carlo sample size for the comparison procedure (B[1]) is set to 1000.
+## Carlo sample size for the comparison procedure (B[1]) is set to 100.
 
 example1
 ## Print out a short summary.

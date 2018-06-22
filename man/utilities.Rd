@@ -123,7 +123,7 @@ Monahan, J. and Genz, A. (1997). Spherical-radial integration rules for
 Bayesian computation,” Journal of the American Statistical Association, 92, 664-674.
 
 Overstall, A.M. & Woods, D.C. (2017). Bayesian design of experiments using
-approximate coordinate exchange. \emph{Technometrics}, in press. (\emph{arXiv:1501.00264}).
+approximate coordinate exchange. \emph{Technometrics}, \bold{59}, 458-470.
 }
 
 \author{
@@ -131,7 +131,7 @@ Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Ad
 }
 
 \seealso{
-\code{\link{aceglm}}, \code{\link{acenlm}}.
+\code{\link{aceglm}}, \code{\link{acenlm}}, \code{\link{paceglm}}, \code{\link{pacenlm}}.
 }
 \examples{
 ## 1. This example uses utilityglm to generate the pseudo-Bayesian D-optimality

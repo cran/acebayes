@@ -1,5 +1,6 @@
 \name{ace}
 \alias{ace}
+\alias{pace}
 \alias{acephase1}
 \alias{acephase2}
 
@@ -11,14 +12,18 @@ Approximate Coordinate Exchange (ACE) Algorithm
 These functions implement the approximate coordinate exchange (ACE) algorithm (Overstall & Woods, 2017) for finding optimal Bayesian experimental designs by maximising an approximation to an intractable expected utility function.
 }
 \usage{
-ace(utility, start.d, B, Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, limits = NULL, 
-progress = FALSE, binary = FALSE, deterministic = FALSE)
-		
+ace(utility, start.d, B, Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, 
+limits = NULL, progress = FALSE, binary = FALSE, deterministic = FALSE)
+
 acephase1(utility, start.d, B, Q = 20, N1 = 20, lower, upper, limits = NULL, 
 progress = FALSE, binary = FALSE, deterministic = FALSE)
 
 acephase2(utility, start.d, B, N2 = 100, progress = FALSE, binary = FALSE, 
 deterministic = FALSE)
+
+pace(utility, start.d, B, Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, 
+limits = NULL, binary = FALSE, deterministic = FALSE, mc.cores = 1, 
+n.assess = 20)
 }
 
 \arguments{
@@ -30,7 +35,9 @@ For a Monte Carlo approximation (\code{deterministic = FALSE}), it should return
 For a deterministic approximation (\code{deterministic = TRUE}), it should return a \emph{\bold{scalar}} giving the approximate value of the expected utility for design \code{d}. In this latter case, the argument \code{B} can be a list containing tuning parameters for the deterministic approximation. If \code{B} is not required, the utility function must still accept the argument.
 }
   \item{start.d}{
-An \code{n} by \code{k} matrix specifying the initial design for the ACE algorithm.
+For \code{ace}, \code{acephase1} and \code{acephase2}, an \code{n} by \code{k} matrix specifying the initial design for the ACE algorithm.
+
+For \code{pace}, a list with each element, an \code{n} by \code{k} matrix specifying the initial design for each repetition of the ACE algorithm.
 }
   \item{B}{
 An argument for controlling the approximation to the expected utility.
@@ -68,7 +75,13 @@ A logical argument indicating whether the utility function has binary or continu
 	\item{deterministic}{
 A logical argument indicating if a Monte Carlo (\code{FALSE}, default) or deterministic (\code{TRUE}) approximation to the expected utility is being used. 		
 }
+	\item{mc.cores}{
+The number of cores to use, i.e. at most how many child processes will be run simultaneously. Must be at least one (the default), and parallelisation requires at least two cores. See \code{\link[parallel]{mclapply}} for more information and warnings for \code{mc.cores} > 1. 	
 }
+	\item{n.assess}{
+If \code{deterministic = FALSE}, the approximate expected utility for the design from each repetition of the ACE algorithm will be calculated \code{n.assess} times. The terminal design returned will be the design with the largest mean approximate expected utility calculated over the \code{n.assess} approximations.}
+	}
+
 \details{
 Finding an optimal Bayesian experimental design (Chaloner & Verdinelli, 1995) involves maximising 
 an objective function given by the expectation of some appropriately chosen utility 
@@ -105,10 +118,15 @@ appropriate for utility functions with continuous output. Overstall et al. (2017
 extended the idea to utility functions with binary output, e.g. the utility 
 function is an indicator function for some event. The type of test can be specified by
 the argument \code{binary}.
+
+Similar to all coordinate exchange algorithms, ACE should be repeated from different initial designs. The function 
+\code{pace} will implement this where the initial designs are given by a list via the argument \code{start.d}. On the completion 
+of the repetitions of ACE, \code{pace} will approximate the expected utility for all final designs and return the design (the terminal design) with the 
+largest approximate expected utility.
 }
 
 \value{
-The function will return an object of class \code{"ace"} which is a list with the following components:
+The function will return an object of class \code{"ace"} (for functions \code{ace}, \code{acephase1} and \code{acephase2}) or \code{"pace"} (for function \code{"pace"}) which is a list with the following components:
 
 \item{utility}{
 The argument \code{utility}.
@@ -117,20 +135,24 @@ The argument \code{utility}.
 The argument \code{start.d}.
 }
 \item{phase1.d}{
-The design found from Phase I of the ACE algorithm.
+The design found from Phase I of the ACE algorithm (only for \code{ace}, \code{acephase1} and \code{acephase2}).
 }
 \item{phase2.d}{
-The design found from Phase II of the ACE algorithm.
+The design found from Phase II of the ACE algorithm (only for \code{ace}, \code{acephase1} and \code{acephase2})..
 }
 \item{phase1.trace}{
 A vector containing the approximated expected utility of the current design at each stage of Phase I of the ACE algorithm. This can be used to assess convergence for MC approximations.
 If \code{deterministic = FALSE}, this will be the mean of a call to \code{utility} with \code{d} being the current design and \code{B} being equal to the argument \code{B[1]}. If \code{deterministic = TRUE}, 
 this will be a call to \code{utility} with \code{d} being the current design.
+
+For \code{pace}, this will be \code{phase1.trace} for the terminal design.
 }
 \item{phase2.trace}{
 A vector containing the approximated expected utility of the current design at each stage of Phase II of the ACE algorithm. This can be used to assess convergence for MC approximations.
 If \code{deterministic = FALSE}, this will be the mean of a call to \code{utility} with \code{d} being the current design and \code{B} being equal to the argument \code{B[1]}. If \code{deterministic = TRUE}, 
 this will be a call to \code{utility} with \code{d} being the current design.
+
+For \code{pace}, this will be \code{phase2.trace} for the terminal design.
 }
 \item{B}{
 The argument \code{B}.	
@@ -165,7 +187,20 @@ The argument \code{binary}.
 \item{deterministic}{
 The argument \code{deterministic}.	
 }
+\item{d}{
+The terminal design (\code{pace} only).
+}
+\item{eval}{
+If \code{deterministic = FALSE}, a vector containing \code{n.assess} approximations to the expected utility for the terminal design (\code{pace} only).
 
+If \code{deterministic = TRUE}, a scalar giving the approximate expected utility for the terminal design (\code{pace} only).
+}
+\item{final.d}{
+A list of the same length as the argument \code{start.d}, where each element is the final design (i.e. \code{phase2.d}) for each repetition of the ACE algorithm (\code{pace} only).
+}
+\item{besti}{
+A scalar indicating which repetition of the ACE algorithm resulted in the terminal design (\code{pace} only).
+}
 }
 \references{
 Chaloner, K. & Verdinelli, I. (1995). Bayesian Experimental Design: A Review. \emph{Statistical
@@ -178,9 +213,9 @@ Meyer, R. & Nachtsheim, C. (1995). The Coordinate Exchange Algorithm for Constru
 Optimal Experimental Designs. \emph{Technometrics}, \bold{37}, 60-69.
 
 Overstall, A.M. & Woods, D.C. (2017). Bayesian design of experiments using
-approximate coordinate exchange. \emph{Technometrics}, in press. (\emph{arXiv:1501.00264}).
+approximate coordinate exchange. \emph{Technometrics}, \bold{59}, 458-470.
 
-Overstall, A.M., McGree, J.M. & Drovandi, C.C. (2017). An approach for finding fully Bayesian optimal designs using normal-based approximations to loss functions. \emph{Statistics and Computing}, in press, \emph{arXiv:1608.05815}.
+Overstall, A.M., McGree, J.M. & Drovandi, C.C. (2018). An approach for finding fully Bayesian optimal designs using normal-based approximations to loss functions. \emph{Statistics and Computing}, \bold{28}(2), 343-358.
 }
 
 \author{
