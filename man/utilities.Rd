@@ -185,6 +185,6 @@ n <- 6
 start.d <- matrix(24 * randomLHS(n = n, k = 1), nrow = n)
 colnames(start.d) <- "t"
 ex2$utility(d = start.d) 
-## -3.651616    
+## -13.17817    
 
 }

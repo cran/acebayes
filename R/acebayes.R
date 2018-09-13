@@ -1347,88 +1347,171 @@ acephase1 <- function (utility, start.d, B, Q = 20, N1 = 20,
 
 ############ acephase2 ############################
 
-acephase2 <- function (utility, start.d, B, N2 = 100, progress = FALSE, 
-          binary = FALSE, deterministic = FALSE) 
+acephase2 <- function (utility, start.d, B, N2 = 100, progress = FALSE, binary = FALSE, 
+         deterministic = FALSE) 
 {
-  if(missing(B) && identical(deterministic, FALSE)) B <- c(20000, 1000)
-  if(missing(B) && identical(deterministic, TRUE)) B <- NULL
-  
-  ptm <- proc.time()[3]
-  n <- dim(start.d)[1]
-  k <- dim(start.d)[2]
-  DESIGN <- start.d
-  CAND <- DESIGN
-  eval <- utility(d = DESIGN, B = B[[1]])
-  best <- DESIGN
-  best_ob <- eval
-  curr2 <- mean(eval)
-  counter2 <- 1
-  if (progress) {
-    cat("Phase II iteration ", counter2, " out of ", N2, 
-        " (Current value = ", curr2, ") \n", sep = "")
-  }
-  while (counter2 < N2) {
-    crt <- c()
-    for (j in 1:n) {
-      INTER <- rbind(DESIGN, CAND[j, ])
-      crt[j] <- mean(utility(d = INTER, B = B[[2]]))
-    }
-    potpts <- (1:n)[max(crt) == crt]
-    if (length(potpts) > 1) {
-      potpts <- sample(x = potpts, size = 1)
-    }
-    INTER <- rbind(DESIGN, CAND[potpts, ])
-    crt <- c()
-    for (j in 1:(n + 1)) {
-      INTER2 <- as.matrix(INTER[-j, ], nrow = n)
-      crt[j] <- mean(utility(d = INTER2, B = B[[2]]))
-    }
-    potpts <- (1:(n + 1))[max(crt) == crt]
-    if (length(potpts) > 1) {
-      potpts <- sample(x = potpts, size = 1)
-    }
-    new_DESIGN <- matrix(INTER[-potpts, ], nrow = n, dimnames = dimnames(CAND))
-    old_DESIGN <- DESIGN
-    old_eval <- utility(d = old_DESIGN, B = B[[1]])
-    new_eval <- utility(d = new_DESIGN, B = B[[1]])
-    if(deterministic) {
-      the.p.val <- ifelse(new_eval > old_eval, 1, 0) 
-    } else {
-      the.p.val <- pval(old_eval, new_eval, binary)
-      the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val)
-    }
-    if (the.p.val > runif(1)) {
-      curr2 <- c(curr2, mean(new_eval))
-      DESIGN <- new_DESIGN
-      the.p.val <- pval(best_ob, new_eval, binary)
-      the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val)
-      if (the.p.val >= runif(1)) {
-        best <- DESIGN
-        best_ob <- new_eval
-      }
-    }
-    else {
-      curr2 <- c(curr2, mean(old_eval))
-    }
-    counter2 <- counter2 + 1
-    if (progress) {
-      cat("Phase II iteration ", counter2, " out of ", 
-          N2, " (Current value = ", curr2[length(curr2)], 
-          ") \n", sep = "")
-    }
-#    if(deterministic && counter2 > 2) {
-#      if(!(curr2[counter2 - 1] > curr2[counter2 - 2] + tolerence)) break
-#    }
-  }
-  ptm <- proc.time()[3] - ptm
-  output <- list(utility = utility, start.d = start.d, phase1.d = start.d, 
-                 phase2.d = best, phase1.trace = NULL, phase2.trace = curr2, B=B, 
-                 Q = NULL, N1 = 0, N2 = N2, glm = FALSE, nlm = FALSE, 
-                 criterion = "NA", family = "NA", prior = "NA", time = ptm, 
-                 binary = binary, deterministic = deterministic)
-  class(output) <- "ace"
-  output
+ if (missing(B) && identical(deterministic, FALSE)) 
+   B <- c(20000, 1000)
+ if (missing(B) && identical(deterministic, TRUE)) 
+   B <- NULL
+ ptm <- proc.time()[3]
+ n <- dim(start.d)[1]
+ k <- dim(start.d)[2]
+ DESIGN <- start.d
+ CAND <- DESIGN
+ eval <- utility(d = DESIGN, B = B[[1]])
+ best <- DESIGN
+ best_ob <- eval
+ curr2 <- mean(eval)
+ counter2 <- 0 ## changed from 1 to ensure we go in the while loop
+ if (progress) {
+   cat("Phase II iteration ", counter2, " out of ", N2, 
+       " (Current value = ", curr2, ") \n", sep = "")
+ }
+ while (counter2 < N2) {
+   crt <- c()
+   for (j in 1:n) {
+     INTER <- rbind(DESIGN, CAND[j, ])
+     crt[j] <- mean(utility(d = INTER, B = B[[2]]))
+   }
+   potpts <- (1:n)[max(crt) == crt]
+   if (length(potpts) > 1) {
+     potpts <- sample(x = potpts, size = 1)
+   }
+   INTER <- rbind(DESIGN, CAND[potpts, ])
+   crt <- c()
+   for (j in 1:(n + 1)) {
+     INTER2 <- matrix(INTER[-j, ], nrow = n, dimnames = dimnames(CAND)) ## adjusted to fix missing colnames
+     crt[j] <- mean(utility(d = INTER2, B = B[[2]]))
+   }
+   potpts <- (1:(n + 1))[max(crt) == crt]
+   if (length(potpts) > 1) {
+     potpts <- sample(x = potpts, size = 1)
+   }
+   new_DESIGN <- matrix(INTER[-potpts, ], nrow = n, dimnames = dimnames(CAND))
+   old_DESIGN <- DESIGN
+   old_eval <- utility(d = old_DESIGN, B = B[[1]])
+   new_eval <- utility(d = new_DESIGN, B = B[[1]])
+   if (deterministic) {
+     the.p.val <- ifelse(new_eval > old_eval, 1, 0)
+   }
+   else {
+     the.p.val <- pval(old_eval, new_eval, binary)
+     the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val)
+   }
+   if (the.p.val > runif(1)) {
+     curr2 <- c(curr2, mean(new_eval))
+     DESIGN <- new_DESIGN
+     the.p.val <- pval(best_ob, new_eval, binary)
+     the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val)
+     if (the.p.val >= runif(1)) {
+       best <- DESIGN
+       best_ob <- new_eval
+     }
+   }
+   else {
+     curr2 <- c(curr2, mean(old_eval))
+   }
+   counter2 <- counter2 + 1
+   if (progress) {
+     cat("Phase II iteration ", counter2, " out of ", 
+         N2, " (Current value = ", curr2[length(curr2)], 
+         ") \n", sep = "")
+   }
+ }
+ ptm <- proc.time()[3] - ptm
+ output <- list(utility = utility, start.d = start.d, phase1.d = start.d, 
+                phase2.d = best, phase1.trace = NULL, phase2.trace = curr2, 
+                B = B, Q = NULL, N1 = 0, N2 = N2, glm = FALSE, nlm = FALSE, 
+                criterion = "NA", family = "NA", prior = "NA", time = ptm, 
+                binary = binary, deterministic = deterministic)
+ class(output) <- "ace"
+ output
 }
+
+
+# acephase2 <- function (utility, start.d, B, N2 = 100, progress = FALSE, 
+#           binary = FALSE, deterministic = FALSE) 
+# {
+#   if(missing(B) && identical(deterministic, FALSE)) B <- c(20000, 1000)
+#   if(missing(B) && identical(deterministic, TRUE)) B <- NULL
+#   
+#   ptm <- proc.time()[3]
+#   n <- dim(start.d)[1]
+#   k <- dim(start.d)[2]
+#   DESIGN <- start.d
+#   CAND <- DESIGN
+#   eval <- utility(d = DESIGN, B = B[[1]])
+#   best <- DESIGN
+#   best_ob <- eval
+#   curr2 <- mean(eval)
+#   counter2 <- 1
+#   if (progress) {
+#     cat("Phase II iteration ", counter2, " out of ", N2, 
+#         " (Current value = ", curr2, ") \n", sep = "")
+#   }
+#   while (counter2 < N2) {
+#     crt <- c()
+#     for (j in 1:n) {
+#       INTER <- rbind(DESIGN, CAND[j, ])
+#       crt[j] <- mean(utility(d = INTER, B = B[[2]]))
+#     }
+#     potpts <- (1:n)[max(crt) == crt]
+#     if (length(potpts) > 1) {
+#       potpts <- sample(x = potpts, size = 1)
+#     }
+#     INTER <- rbind(DESIGN, CAND[potpts, ])
+#     crt <- c()
+#     for (j in 1:(n + 1)) {
+#       INTER2 <- as.matrix(INTER[-j, ], nrow = n)
+#       crt[j] <- mean(utility(d = INTER2, B = B[[2]]))
+#     }
+#     potpts <- (1:(n + 1))[max(crt) == crt]
+#     if (length(potpts) > 1) {
+#       potpts <- sample(x = potpts, size = 1)
+#     }
+#     new_DESIGN <- matrix(INTER[-potpts, ], nrow = n, dimnames = dimnames(CAND))
+#     old_DESIGN <- DESIGN
+#     old_eval <- utility(d = old_DESIGN, B = B[[1]])
+#     new_eval <- utility(d = new_DESIGN, B = B[[1]])
+#     if(deterministic) {
+#       the.p.val <- ifelse(new_eval > old_eval, 1, 0) 
+#     } else {
+#       the.p.val <- pval(old_eval, new_eval, binary)
+#       the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val)
+#     }
+#     if (the.p.val > runif(1)) {
+#       curr2 <- c(curr2, mean(new_eval))
+#       DESIGN <- new_DESIGN
+#       the.p.val <- pval(best_ob, new_eval, binary)
+#       the.p.val <- ifelse(is.na(the.p.val), 0, the.p.val)
+#       if (the.p.val >= runif(1)) {
+#         best <- DESIGN
+#         best_ob <- new_eval
+#       }
+#     }
+#     else {
+#       curr2 <- c(curr2, mean(old_eval))
+#     }
+#     counter2 <- counter2 + 1
+#     if (progress) {
+#       cat("Phase II iteration ", counter2, " out of ", 
+#           N2, " (Current value = ", curr2[length(curr2)], 
+#           ") \n", sep = "")
+#     }
+# #    if(deterministic && counter2 > 2) {
+# #      if(!(curr2[counter2 - 1] > curr2[counter2 - 2] + tolerence)) break
+# #    }
+#   }
+#   ptm <- proc.time()[3] - ptm
+#   output <- list(utility = utility, start.d = start.d, phase1.d = start.d, 
+#                  phase2.d = best, phase1.trace = NULL, phase2.trace = curr2, B=B, 
+#                  Q = NULL, N1 = 0, N2 = N2, glm = FALSE, nlm = FALSE, 
+#                  criterion = "NA", family = "NA", prior = "NA", time = ptm, 
+#                  binary = binary, deterministic = deterministic)
+#   class(output) <- "ace"
+#   output
+# }
 
 ############ ace ############################
 

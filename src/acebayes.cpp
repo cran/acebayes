@@ -14,11 +14,11 @@ Rcpp::NumericVector yfracr(yfrac);
 
 int B = samr.nrow(), p = xr.ncol(), n = xr.nrow();
 
-arma::mat Y(yr.begin(), B, n, false);  
-arma::mat X(xr.begin(), n, p, false);  
-arma::mat SAM(samr.begin(), B, p, false);  
-arma::vec a(frhor.begin(), B, false);  
-arma::vec b(yfracr.begin(), B, false);  
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat X(xr.begin(), n, p, false);
+arma::mat SAM(samr.begin(), B, p, false);
+arma::vec a(frhor.begin(), B, false);
+arma::vec b(yfracr.begin(), B, false);
 
 arma::mat SAMt = SAM.t();
 
@@ -145,7 +145,8 @@ eta = exp(eta);
 out(i) += sum(eta);
 
 beta -= PM;
-beta %= beta;
+temp2 = beta;
+beta %= temp2;
 beta %= iPV;
 out(i) += 0.5*sum(beta);
 log_det(dett,crit,XWX);
@@ -242,7 +243,8 @@ counter += 1;
 crit = dot(temp2,temp2);}
 
 beta -= BETAT.col(i);
-beta %= beta;
+temp2 = beta;
+beta %= temp2;
 
 for (int ii=0; ii<k; ii++) {
 out.at(i) -= beta.at(ii);}
@@ -265,11 +267,11 @@ Rcpp::NumericVector yfracr(yfrac);
 
 int B = samr.nrow(), p = xr.ncol(), n = xr.nrow();
 
-arma::mat Y(yr.begin(), B, n, false);  
-arma::mat X(xr.begin(), n, p, false);  
-arma::mat SAM(samr.begin(), B, p, false);  
-arma::vec a(frhor.begin(), B, false);  
-arma::vec b(yfracr.begin(), B, false);  
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat X(xr.begin(), n, p, false);
+arma::mat SAM(samr.begin(), B, p, false);
+arma::vec a(frhor.begin(), B, false);
+arma::vec b(yfracr.begin(), B, false);
 
 arma::mat SAMt = SAM.t();
 
@@ -385,7 +387,8 @@ counter += 1;
 crit = dot(temp2,temp2);}
 
 beta -= BETAT.col(i);
-beta %= beta;
+temp2 = beta;
+beta %= temp2;
 
 for (int ii=0; ii<k; ii++) {
 out.at(i) -= beta.at(ii);}
@@ -506,7 +509,8 @@ eta = log(eta);
 out(i) += sum(eta);
 
 beta -= PM;
-beta %= beta;
+temp2 = beta;
+beta %= temp2;
 beta %= iPV;
 out(i) += 0.5*sum(beta);
 log_det(dett,crit,XWX);
@@ -663,7 +667,7 @@ int B = mu2r.nrow();
 int n = mu2r.ncol();
 
 arma::mat Y(yr.begin(), B, n, false);
-arma::mat MU1(mu1r.begin(), B, n, false); 
+arma::mat MU1(mu1r.begin(), B, n, false);
 arma::mat MU2(mu2r.begin(), B, n, false);
 arma::vec SIG1(sig1r.begin(), B, false);
 arma::vec SIG2(sig2r.begin(), B, false);
@@ -723,10 +727,10 @@ int B = mu2r.nrow();
 int n = mu2r.ncol();
 int p = theta1r.ncol();
 
-arma::mat Y(yr.begin(), B, n, false); 
+arma::mat Y(yr.begin(), B, n, false);
 arma::mat MU2(mu2r.begin(), B, n, false);
 arma::vec SIG2(sig2r.begin(), B, false);
-arma::mat THETA1(theta1r.begin(), B, p, false); 
+arma::mat THETA1(theta1r.begin(), B, p, false);
 arma::mat THETA2(theta2r.begin(), B, p, false);
 
 arma::vec iSIG2 = -0.5/SIG2;
@@ -781,7 +785,7 @@ int n = xr.nrow();
 int p = xr.ncol();
 int B = betar.nrow();
 
-arma::mat xs(xr.begin(), n, p, false); 
+arma::mat xs(xr.begin(), n, p, false);
 arma::mat betas(betar.begin(), B, p, false);
 
 arma::mat eta(B,n);
@@ -835,8 +839,8 @@ int p = xr.ncol();
 int B = betar.nrow();
 int G = gamr.ncol();
 
-arma::mat X(xr.begin(), n, p, false); 
-arma::mat Z(zr.begin(), n, zr.ncol(), false); 
+arma::mat X(xr.begin(), n, p, false);
+arma::mat Z(zr.begin(), n, zr.ncol(), false);
 arma::mat BETA(betar.begin(), B, p, false);
 arma::mat GAMMA(gamr.begin(), B, G, false);
 arma::mat s(Sr.begin(), B, p, false);
@@ -892,7 +896,7 @@ temp = inv_sympd(temp);
 littletx = littletx*temp;
 xwx += littletx*littlex;}
 
-log_det(DETS(i), temp2, xwx); 
+log_det(DETS(i), temp2, xwx);
 
 }
 
@@ -912,7 +916,7 @@ int n = xr.nrow();
 int p = xr.ncol();
 int B = betar.nrow();
 
-arma::mat xs(xr.begin(), n, p, false); 
+arma::mat xs(xr.begin(), n, p, false);
 arma::mat betas(betar.begin(), B, p, false);
 
 arma::mat eta(B,n);
@@ -968,8 +972,8 @@ int p = xr.ncol();
 int B = betar.nrow();
 int G = gamr.ncol();
 
-arma::mat X(xr.begin(), n, p, false); 
-arma::mat Z(zr.begin(), n, zr.ncol(), false); 
+arma::mat X(xr.begin(), n, p, false);
+arma::mat Z(zr.begin(), n, zr.ncol(), false);
 arma::mat BETA(betar.begin(), B, p, false);
 arma::mat GAMMA(gamr.begin(), B, G, false);
 arma::mat s(Sr.begin(), B, p, false);
@@ -1049,8 +1053,8 @@ int n = xr.nrow();
 int p = xr.ncol();
 int B = Wr.nrow();
 
-arma::mat xs(xr.begin(), n, p, false); 
-arma::mat Ws(Wr.begin(), B, n, false); 
+arma::mat xs(xr.begin(), n, p, false);
+arma::mat Ws(Wr.begin(), B, n, false);
 
 arma::mat xwx(p,p);
 arma::vec DETS = arma::zeros(B);
@@ -1090,8 +1094,8 @@ int n = xr.nrow();
 int p = xr.ncol();
 int B = Wr.nrow();
 
-arma::mat xs(xr.begin(), n, p, false); 
-arma::mat Ws(Wr.begin(), B, n, false); 
+arma::mat xs(xr.begin(), n, p, false);
+arma::mat Ws(Wr.begin(), B, n, false);
 
 arma::mat xwx(p,p);
 arma::vec DETS = arma::zeros(B);
@@ -1133,8 +1137,8 @@ int n = xr.nrow();
 int p = xr.ncol();
 int B = Wr.nrow();
 
-arma::mat xs(xr.begin(), n, p, false); 
-arma::mat Ws(Wr.begin(), B, n, false); 
+arma::mat xs(xr.begin(), n, p, false);
+arma::mat Ws(Wr.begin(), B, n, false);
 
 arma::mat xwx(p,p);
 arma::vec DETS = arma::zeros(B);
@@ -1170,8 +1174,8 @@ Rcpp::NumericVector newevalr(neweval);
 
 int B = oldevalr.size();
 
-arma::vec oldv(oldevalr.begin(), B, false); 
-arma::vec newv(newevalr.begin(), B, false); 
+arma::vec oldv(oldevalr.begin(), B, false);
+arma::vec newv(newevalr.begin(), B, false);
 
 int n = 2*B;
 
@@ -1203,7 +1207,7 @@ return as<NumericVector>(wrap(ans));
 // NEW FUNCTION;
 
 RcppExport SEXP distcpp(SEXP Dij) {
-       
+
 Rcpp::NumericVector xr(Dij);
 
 arma::vec xs(xr.begin(), xr.size(), false);
@@ -1234,11 +1238,11 @@ Rcpp::NumericVector xr(Dij);
 
 int Q = zzzr.size();
 
-arma::mat ARR(Aar.begin(), Q, Q, false);       
+arma::mat ARR(Aar.begin(), Q, Q, false);
 arma::vec THETA(thetar.begin(), thetar.size(), false);
-arma::mat Z(zzzr.begin(), Q , 1 , false); 
-arma::vec xp(xxxr.begin(), xxxr.size(), false); 
-arma::vec x(xr.begin(), xr.size(), false); 
+arma::mat Z(zzzr.begin(), Q , 1 , false);
+arma::vec xp(xxxr.begin(), xxxr.size(), false);
+arma::vec x(xr.begin(), xr.size(), false);
 
 int m = xp.n_elem;
 
@@ -1305,8 +1309,8 @@ Rcpp::NumericMatrix samr(sam);
 int n = dr.nrow();
 int BB = samr.nrow();
 
-arma::mat ds(dr.begin(), n, 1, false); 
-arma::mat sams(samr.begin(), BB, 2, false); 
+arma::mat ds(dr.begin(), n, 1, false);
+arma::mat sams(samr.begin(), BB, 2, false);
 
 arma::vec times = vectorise(ds);
 times += 1;
@@ -1334,7 +1338,7 @@ arma::vec c23 = arma::zeros(BB);
 
 double temp;
 arma::vec tempv(n);
- 
+
 for(int j=0; j<BB; j++){
 
 theta = vectorise(sams.row(j));
@@ -1348,7 +1352,7 @@ e22 = e2;
 ec = e1;
 e11 += e1;
 e22 += e2;
-ec += e2; 
+ec += e2;
 e1 = exp(e1);
 e2 = exp(e2);
 e11 = exp(e11);
@@ -1395,13 +1399,13 @@ Rcpp::NumericMatrix samr(theta);
 int n = dr.nrow();
 int B = samr.nrow();
 
-arma::mat D(dr.begin(), n, 1, false); 
-arma::mat THETA(samr.begin(), B, 3, false); 
+arma::mat D(dr.begin(), n, 1, false);
+arma::mat THETA(samr.begin(), B, 3, false);
 
 int DDD = 400;
 double tau = 0.01;
 double sig = 0.1;
-double tausig = tau/sig; 
+double tausig = tau/sig;
 double diff;
 double rat;
 
@@ -1468,7 +1472,8 @@ dv = dphi;
 mu *= c;
 phi = vectorise(mu);
 v = phi;
-v %= v;
+//v = v%v;
+v %= phi;
 v *= tausig;
 v += 1;
 
@@ -1509,7 +1514,7 @@ Rcpp::NumericMatrix xr(Z);
 
 int nrows = xr.nrow(), ncols = xr.ncol();
 
-arma::mat x(xr.begin(), nrows, ncols, false);  
+arma::mat x(xr.begin(), nrows, ncols, false);
 
 arma::vec sums(nrows);
 for (int row=0; row<nrows; row++) {
@@ -1532,10 +1537,10 @@ Rcpp::NumericVector frhor(frho);
 
 int B = samr.nrow(), p = xr.ncol(), n = xr.nrow();
 
-arma::mat Y(yr.begin(), B, n, false);  
-arma::mat X(xr.begin(), n, p, false);  
-arma::mat SAM(samr.begin(), B, p, false);  
-arma::vec FRHO(frhor.begin(), B, false);  
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat X(xr.begin(), n, p, false);
+arma::mat SAM(samr.begin(), B, p, false);
+arma::vec FRHO(frhor.begin(), B, false);
 
 arma::vec ANS = arma::zeros(B);
 double LL;
@@ -1563,10 +1568,10 @@ Rcpp::NumericVector frhor(frho);
 
 int B = samr.nrow(), p = xr.ncol(), n = xr.nrow();
 
-arma::mat Y(yr.begin(), B, n, false);  
-arma::mat X(xr.begin(), n, p, false);  
-arma::mat SAM(samr.begin(), B, p, false);  
-arma::vec FRHO(frhor.begin(), B, false);  
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat X(xr.begin(), n, p, false);
+arma::mat SAM(samr.begin(), B, p, false);
+arma::vec FRHO(frhor.begin(), B, false);
 
 arma::mat ANS = arma::zeros(B,p);
 double LL;
@@ -1596,7 +1601,7 @@ Rcpp::NumericMatrix xr(x);
 
 int p = xr.ncol(), n = xr.nrow();
 
-arma::mat X(xr.begin(), n, p, false);  
+arma::mat X(xr.begin(), n, p, false);
 
 arma::mat XTX = arma::zeros(p,p);
 double ANS = 0;
@@ -1627,14 +1632,15 @@ Rcpp::NumericVector frhor(frho);
 
 int B = yr.nrow(), n = yr.ncol();
 
-arma::mat Y(yr.begin(), B, n, false);  
-arma::mat MU(mur.begin(), B, n, false);  
-arma::mat VV(vvr.begin(), B, n, false);  
-arma::vec FRHO(frhor.begin(), B, false);  
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat MU(mur.begin(), B, n, false);
+arma::mat VV(vvr.begin(), B, n, false);
+arma::vec FRHO(frhor.begin(), B, false);
 
 arma::vec ANS = arma::zeros(B);
 arma::rowvec temp1(n);
 arma::rowvec temp2(n);
+arma::rowvec temp3(n);
 double LL;
 double harris;
 harris = arma::datum::pi;
@@ -1647,7 +1653,9 @@ temp1 = Y.row(i);
 for (int j=0; j<B; j++){
 temp2 = temp1;
 temp2 -= MU.row(j);
-temp2 %= temp2;
+//temp2 = temp2%temp2;
+temp3 = temp2;
+temp2 %= temp3; 
 temp2 /= VV.row(j);
 LL = sum(temp2);
 LL += FRHO(j);
@@ -1673,11 +1681,11 @@ Rcpp::NumericVector ncrr(ncr);
 
 int B = yr.nrow(), n = yr.ncol();
 
-arma::vec PHI(phir.begin(), B, false);  
-arma::mat Y(yr.begin(), B, n, false);  
-arma::mat MU(mur.begin(), B, n, false);  
-arma::vec FRHO(frhor.begin(), B, false);  
-arma::vec NCR(ncrr.begin(), B, false);  
+arma::vec PHI(phir.begin(), B, false);
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat MU(mur.begin(), B, n, false);
+arma::vec FRHO(frhor.begin(), B, false);
+arma::vec NCR(ncrr.begin(), B, false);
 
 arma::rowvec yy(n);
 arma::rowvec mm(n);
@@ -1728,10 +1736,10 @@ Rcpp::NumericVector frhor(frho);
 
 int n = Fdr.nrow(), p = Fdr.ncol(), B = famr.nrow();
 
-arma::mat F(Fdr.begin(), n, p, false);  
-arma::mat Y(yr.begin(), B, n, false);  
-arma::mat FAM(famr.begin(), B, p, false);  
-arma::vec FRHO(frhor.begin(), B, false);  
+arma::mat F(Fdr.begin(), n, p, false);
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat FAM(famr.begin(), B, p, false);
+arma::vec FRHO(frhor.begin(), B, false);
 
 int k = 5;
 
@@ -1773,13 +1781,13 @@ int n = Fdr.nrow(), p = samr.ncol(), p2 = Fdr.ncol(), B = samr.nrow();
 int B3 = famr.nrow();
 int B2 = B3/2;
 
-arma::mat F(Fdr.begin(), n, p2, false);  
-arma::mat Y(yr.begin(), B, n, false);  
-arma::mat FAM(famr.begin(), B3, p2, false);  
-arma::vec FRHO(frhor.begin(), B2, false);  
-arma::mat SAM(samr.begin(), B, p, false);  
-arma::mat ETAX(etaxr.begin(), B, n, false);  
-arma::mat ETAZ(etazr.begin(), B2, n, false); 
+arma::mat F(Fdr.begin(), n, p2, false);
+arma::mat Y(yr.begin(), B, n, false);
+arma::mat FAM(famr.begin(), B3, p2, false);
+arma::vec FRHO(frhor.begin(), B2, false);
+arma::mat SAM(samr.begin(), B, p, false);
+arma::mat ETAX(etaxr.begin(), B, n, false);
+arma::mat ETAZ(etazr.begin(), B2, n, false);
 
 int p3 = p2 - p;
 int temp = p2-1;
@@ -1828,9 +1836,3 @@ ANS.at(i,1) += exp(LL2);}}
 return as<NumericMatrix>(wrap(ANS));
 
 }
-
-
-
-
-
-

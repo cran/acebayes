@@ -263,7 +263,7 @@ mean(utilcomp18bad(d = example1$phase2.d, B = 100))
 ## Calculate an approximation to the expected utility for the final design.
 ## Should get:
 
-#[1] 10.34614
+#[1] 9.254198
 
 \dontrun{
 plot(example1)

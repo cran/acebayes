@@ -325,8 +325,8 @@ utility <- utilitynlm(formula = ~c * (exp( - a * t) - exp( - b *t)), prior = pri
 ## create a utility function to compare designs
 
 mean(utility(example1$phase1.d, B = 20000))
-#[1] 12.13958
+#[1] 12.13773
 mean(utility(example2$phase1.d, B = 20000))
-#[1] 12.10159
+#[1] 11.19745
 ## Compare the two designs using the Monte Carlo approximation
 }
