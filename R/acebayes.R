@@ -400,8 +400,8 @@ utilityglm <- function (formula, family, prior, criterion = c("D", "A", "E", "SI
   
   if (criterion == "A" | criterion == "D" | criterion == "E") {
     if(identical(method, "quadrature")) {
-      no.terms <- 1 + length(attr(terms(formula), "term.labels"))
-      
+      #no.terms <- 1 + length(attr(terms(formula), "term.labels"))    #### Problem here if you don't want an interecpt
+      no.terms <- attr(terms(formula), "intercept") + length(attr(terms(formula), "term.labels")) 
       if(identical(names(prior)[1:2], c("mu", "sigma2"))) {
         if(identical(length(prior$mu), as.integer(1))) {
           qmu <- rep(prior$mu, no.terms)
@@ -950,8 +950,8 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
       }
       mu1 <- matrix(grad(d = d3, paras = sam3)[1:(B2 * 
                                                     n1)], ncol = n1, byrow = TRUE)
-      mu2 <- mu1[-(1:B), ]
-      mu1 <- mu1[1:B, ]
+      mu2 <- matrix(mu1[-(1:B), ],nrow=B)
+      mu1 <- matrix(mu1[1:B, ],nrow=B)
       y <- matrix(rnorm(n = n1 * B, mean = as.vector(mu1), 
                         sd = rep(sqrt(sam[1:B, colnames(sam) == "sig2"]), 
                                  n1)), ncol = n1)
@@ -976,8 +976,8 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
       }
       mu1 <- matrix(grad(d = d3, paras = sam3)[1:(B2 * 
                                                     n1)], ncol = n1, byrow = TRUE)
-      mu2 <- mu1[-(1:B), ]
-      mu1 <- mu1[1:B, ]
+      mu2 <- matrix(mu1[-(1:B), ],nrow=B)
+      mu1 <- matrix(mu1[1:B, ],nrow=B)
       y <- matrix(rnorm(n = n1 * B, mean = as.vector(mu1), 
                         sd = rep(sqrt(sam[1:B, colnames(sam) == "sig2"]), 
                                  n1)), ncol = n1)

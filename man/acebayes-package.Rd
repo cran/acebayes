@@ -26,8 +26,8 @@ points.
 \tabular{ll}{
 Package: \tab acebayes\cr
 Type: \tab Package\cr
-Version: \tab 1.5.1\cr
-Date: \tab 2018-09-13\cr
+Version: \tab 1.5.2\cr
+Date: \tab 2018-11-21\cr
 License: \tab GPL-2\cr
 }
 The most important functions are as follows.
