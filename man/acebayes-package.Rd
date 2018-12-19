@@ -26,8 +26,8 @@ points.
 \tabular{ll}{
 Package: \tab acebayes\cr
 Type: \tab Package\cr
-Version: \tab 1.5.2\cr
-Date: \tab 2018-11-21\cr
+Version: \tab 1.6.0\cr
+Date: \tab 2018-12-19\cr
 License: \tab GPL-2\cr
 }
 The most important functions are as follows.
@@ -47,7 +47,7 @@ The most important functions are as follows.
 \code{\link{pacenlm}}
 }
 
-The function \code{\link{ace}} implements both phases of the ACE algorithm. It has two mandatory arguments: \code{utility} (a function specifying the chosen utility function incorporating the joint distribution of unknown quantities) and \code{start.d} (the initial design). The function will return the final design from the algorithm, along with information to assess convergence. The function \code{link{pace}} implements repetitions of the ACE algorithm from different starting designs (as specified by the \code{start.d} argument).
+The function \code{\link{ace}} implements both phases of the ACE algorithm. It has two mandatory arguments: \code{utility} (a function specifying the chosen utility function incorporating the joint distribution of unknown quantities) and \code{start.d} (the initial design). The function will return the final design from the algorithm, along with information to assess convergence. The function \code{\link{pace}} implements repetitions of the ACE algorithm from different starting designs (as specified by the \code{start.d} argument).
 
 The computational time of \code{\link{ace}} (and \code{\link{pace}}) is highly dependent on the computational time required to evaluate the user-supplied function \code{utility}. Therefore it is recommended that users take advantage of \code{R} packages such as \code{Rcpp} (Eddelbuettel & Francois, 2011), \code{RcppArmadillo} (Eddelbuettel & Sanderson, 2014), or \code{RcppEigen} (Bates & Eddelbuettel, 2013), that provide convenient interfaces to compiled programming languages.
 

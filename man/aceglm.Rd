@@ -28,7 +28,7 @@ An object of class \code{"formula"}: a symbolic description of the model. The te
   \item{start.d}{
 For \code{aceglm}, an \code{n} by \code{k} matrix, with column names used by the argument \code{formula}, specifying the initial design for the ACE algorithm.
 
-For \code{paceglm}, a list with each element, an \code{n} by \code{k} matrix, with column names used by the argument \code{formula}, specifying the initial design for each repetition of the ACE algorithm.
+For \code{paceglm}, a list with each element being an \code{n} by \code{k} matrix, with column names used by the argument \code{formula}, specifying the initial design for each repetition of the ACE algorithm.
 }
 	\item{family}{
 A description of the error distribution and link function to be used in the model. This can be a character string naming a family function, a family function or the result of a call to a family function. (See \code{\link{family}} for details of family functions.)
@@ -139,12 +139,12 @@ The expected utilities can be approximated using Monte Carlo methods (\code{meth
 
 Note that the utility functions for SIG and NSEL are currently only implemented for logistic regression, i.e. \code{family = binomial}, or Poisson regression, i.e. \code{family = poisson(link="log")}, whereas the utility functions for pseudo-Bayesian designs are implemented for generic GLM families.
 
-For more details on the ACE algorithm, see Overstall & Woods (2017).
-
 Similar to all coordinate exchange algorithms, ACE should be repeated from different initial designs. The function 
 \code{paceglm} will implement this where the initial designs are given by a list via the argument \code{start.d}. On the completion 
 of the repetitions of ACE, \code{paceglm} will approximate the expected utility for all final designs and return the design (the terminal design) with the 
 largest approximate expected utility.
+
+For more details on the ACE algorithm, see Overstall & Woods (2017).
 }
 
 \value{
@@ -246,7 +246,7 @@ Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Ad
 }
 
 \note{
-This is a wrapper function for \code{\link{ace}}.
+These are wrapper functions for \code{\link{ace}} and \code{\link{pace}}.
 }
 
 \seealso{

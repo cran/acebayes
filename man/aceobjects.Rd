@@ -31,8 +31,6 @@ Arguments to be passed to and from other methods.
 }
 
 \value{
-These functions both provide a print out with the following information.
-
 If the object is a result of a direct call to \code{\link{aceglm}}, \code{\link{acenlm}}, \code{\link{paceglm}}, or \code{\link{pacenlm}}, then the argument \code{criterion} will be printed, otherwise the statement \code{User-defined utility} will be printed.
 
 Also printed are the number of repetitions (\code{"pace"} objects only), runs, factors, Phase I and II iterations of the ACE algorithm and the computational time required.

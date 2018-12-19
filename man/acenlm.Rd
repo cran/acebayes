@@ -7,7 +7,7 @@ Approximate Coordinate Exchange (ACE) Algorithm for Non-Linear Models
 }
 \encoding{UTF-8}
 \description{
-Function implementing the approximate coordinate exchange algorithm (Overstall & Woods, 2017) for finding optimal Bayesian designs for non-linear regression models.
+Functions implementing the approximate coordinate exchange algorithm (Overstall & Woods, 2017) for finding optimal Bayesian designs for non-linear regression models.
 }
 \usage{
 acenlm(formula, start.d, prior, B, criterion = c("D", "A", "E", "SIG", "NSEL"), 
@@ -127,12 +127,12 @@ where \eqn{e()}{e()} denotes the function that calculates the eigenvalues of its
 
 The expected utilities can be approximated using Monte Carlo methods (\code{method = "MC"} for all criteria) or using a deterministic quadrature method (\code{method = "quadrature"}, implemented for the D, A and E criteria). The former approach approximates the expected utility via sampling from the prior. The latter approach uses a radial-spherical integration rule (Monahan and Genz, 1997) and \code{B[1]} specifies the number, \eqn{n_r}{n_r}, of radial abscissas and \code{B[2]} specifies the number,  \eqn{n_q}{n_q}, of random rotations. Larger values of  \eqn{n_r}{n_r} will produce more accurate, but also more computationally expensive, approximations. See Gotwalt et al. (2009) for further details.   
 
-For more details on the ACE algorithm, see Overstall & Woods (2017).
-
 Similar to all coordinate exchange algorithms, ACE should be repeated from different initial designs. The function 
 \code{pacenlm} will implement this where the initial designs are given by a list via the argument \code{start.d}. On the completion 
 of the repetitions of ACE, \code{pacenlm} will approximate the expected utility for all final designs and return the design (the terminal design) with the 
 largest approximate expected utility.
+
+For more details on the ACE algorithm, see Overstall & Woods (2017).
 }
 
 \value{
@@ -228,7 +228,7 @@ Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Ad
 }
 
 \note{
-This is a wrapper function for \code{\link{ace}}.
+These are wrapper functions for \code{\link{ace}} and \code{\link{pace}}.
 }
 
 \seealso{
@@ -313,12 +313,12 @@ example2$phase2.d
 ## Final design
 
 #           t
-#1  0.3090187
-#2  2.0710214
-#3  6.5164562
-#4  0.5964350
-#5 23.3100644
-#6 20.1339899
+#1  0.5167335
+#2  2.3194434
+#3  1.5365409
+#4  8.2471451
+#5 21.9402670
+#6 12.7062270
 
 utility <- utilitynlm(formula = ~c * (exp( - a * t) - exp( - b *t)), prior = prior, 
                             desvars = "t", method = "MC" )$utility

@@ -369,8 +369,10 @@ boxplot(x$U1,x$U2, names = c("d1","d2"), xlab= "Object", ylab="Approximate expec
 
 ############ utilityglm ############################
 
+############ utilityglm ############################
+
 utilityglm <- function (formula, family, prior, criterion = c("D", "A", "E", "SIG", "NSEL", "SIG-Norm", "NSEL-Norm"), 
-                         method = c("quadrature", "MC"), nrq) 
+                        method = c("quadrature", "MC"), nrq) 
 {
   
   criterion <- match.arg(criterion)
@@ -427,6 +429,9 @@ utilityglm <- function (formula, family, prior, criterion = c("D", "A", "E", "SI
         } else {
           stop("Argument \"prior\" must correctly specify a normal or uniform prior for the model parameters (see help file).")
         }
+      ## dcw 28-11-2018 check the weights and abscissas are all OK
+      if(anyNA(weights) || any(is.infinite(weights)) || any(is.nan(weights))) stop("The quadrature scheme is not valid for large values of nr and/or nq. Try making these values smaller.")
+      if(anyNA(abscissas) || any(is.infinite(abscissas)) || any(is.nan(abscissas))) stop("The quadrature scheme is not valid for large values of nr and/or nq. Try making these values smaller.")
       inte <- function(d, B) {
         x <- model.matrix(object = formula, data = data.frame(d))
         v <- utilglm(x = x, beta = abscissas, family = family, criterion = criterion)
@@ -720,10 +725,12 @@ utilityglm <- function (formula, family, prior, criterion = c("D", "A", "E", "SI
 
 ############ utilitynlm ############################
 
-utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "SIG", "NSEL"), 
-                         method = c("quadrature", "MC"), nrq) 
-{
+############ utilitynlm ############################
 
+utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "SIG", "NSEL"), 
+                        method = c("quadrature", "MC"), nrq) 
+{
+  
   criterion <- match.arg(criterion)
   if(length(method) > 1) {
     method = switch(EXPR=criterion,
@@ -742,8 +749,8 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
   
   if(missing(nrq)) {
     nrq <- switch(method,
-      quadrature = c(2, 8),
-      NULL)
+                  quadrature = c(2, 8),
+                  NULL)
   }  
   nr <- nrq[[1]]
   nq <- nrq[[2]]
@@ -777,7 +784,7 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
   gradtext <- paste(gradtext, substr(x = aDD, start = 2, stop = nchar(aDD)), 
                     sep = "")
   eval(parse(text = gradtext))
-
+  
   if (criterion == "A" | criterion == "D" | criterion == "E") {
     if(identical(method, "quadrature")) {
       no.terms <- p
@@ -816,14 +823,17 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
         } else {
           stop("Argument \"prior\" must correctly specify a normal or uniform prior for the model parameters (see help file).")
         }
-    }
+      ## dcw 28-11-2018 check the weights and abscissas are all OK
+      if(anyNA(weights) || any(is.infinite(weights)) || any(is.nan(weights))) stop("The quadrature scheme is not valid for large values of nr and/or nq. Try making these values smaller.")
+      if(anyNA(abscissas) || any(is.infinite(abscissas)) || any(is.nan(abscissas))) stop("The quadrature scheme is not valid for large values of nr and/or nq. Try making these values smaller.")
+  }
   }
   if (criterion == "D") {
     if(identical(method, "MC")) {
       inte <- function(d, B) {
         n1 <- dim(d)[1]
         sam <- prior(B)
-#        d2 <- 0.5 * (d + 1) * diff + lower
+        #        d2 <- 0.5 * (d + 1) * diff + lower
         d3 <- matrix(0, ncol = k, nrow = B * n1)
         for (i in 1:k) {
           d3[, i] <- rep(d[, i], B)
@@ -840,7 +850,7 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
         n1 <- dim(d)[1]
         sam <- abscissas
         B <- nrow(sam)
-#        d2 <- 0.5 * (d + 1) * diff + lower
+        #        d2 <- 0.5 * (d + 1) * diff + lower
         d3 <- matrix(0, ncol = k, nrow = B * n1)
         for (i in 1:k) {
           d3[, i] <- rep(d[, i], B)
@@ -861,7 +871,7 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
       inte <- function(d, B) {
         n1 <- dim(d)[1]
         sam <- prior(B)
- #       d2 <- 0.5 * (d + 1) * diff + lower
+        #       d2 <- 0.5 * (d + 1) * diff + lower
         d3 <- matrix(0, ncol = k, nrow = B * n1)
         for (i in 1:k) {
           d3[, i] <- rep(d[, i], B)
@@ -879,7 +889,7 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
         n1 <- dim(d)[1]
         sam <- abscissas
         B <- nrow(sam)
-#        d2 <- 0.5 * (d + 1) * diff + lower
+        #        d2 <- 0.5 * (d + 1) * diff + lower
         d3 <- matrix(0, ncol = k, nrow = B * n1)
         for (i in 1:k) {
           d3[, i] <- rep(d[, i], B)
@@ -900,7 +910,7 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
       inte <- function(d, B) {
         n1 <- dim(d)[1]
         sam <- prior(B)
-#        d2 <- 0.5 * (d + 1) * diff + lower
+        #        d2 <- 0.5 * (d + 1) * diff + lower
         d3 <- matrix(0, ncol = k, nrow = B * n1)
         for (i in 1:k) {
           d3[, i] <- rep(d[, i], B)
@@ -918,7 +928,7 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
         n1 <- dim(d)[1]
         sam <- abscissas
         B <- nrow(sam)
-#        d2 <- 0.5 * (d + 1) * diff + lower
+        #        d2 <- 0.5 * (d + 1) * diff + lower
         d3 <- matrix(0, ncol = k, nrow = B * n1)
         for (i in 1:k) {
           d3[, i] <- rep(d[, i], B)
@@ -989,7 +999,7 @@ utilitynlm <- function (formula, prior, desvars, criterion = c("D", "A", "E", "S
   }
   output <- list(utility = inte)
   output
-}
+  }
 
 ############ acenlm ############################
 
@@ -1364,10 +1374,10 @@ acephase2 <- function (utility, start.d, B, N2 = 100, progress = FALSE, binary =
  best_ob <- eval
  curr2 <- mean(eval)
  counter2 <- 0 ## changed from 1 to ensure we go in the while loop
- if (progress) {
-   cat("Phase II iteration ", counter2, " out of ", N2, 
-       " (Current value = ", curr2, ") \n", sep = "")
- }
+ # if (progress) {
+ #   cat("Phase II iteration ", counter2, " out of ", N2, 
+ #       " (Current value = ", curr2, ") \n", sep = "")
+ # }
  while (counter2 < N2) {
    crt <- c()
    for (j in 1:n) {
@@ -1419,6 +1429,8 @@ acephase2 <- function (utility, start.d, B, N2 = 100, progress = FALSE, binary =
          ") \n", sep = "")
    }
  }
+
+curr2<-curr2[-1]  # Delete 1st element of curr2
  ptm <- proc.time()[3] - ptm
  output <- list(utility = utility, start.d = start.d, phase1.d = start.d, 
                 phase2.d = best, phase1.trace = NULL, phase2.trace = curr2, 

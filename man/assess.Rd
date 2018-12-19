@@ -68,7 +68,7 @@ Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Ad
 }
 
 \seealso{
-\code{\link{ace}}, \code{\link{pace}},\code{\link{aceglm}}, \code{\link{acenlm}}, \code{\link{paceglm}}, \code{\link{pacenlm}}.
+\code{\link{ace}}, \code{\link{pace}}, \code{\link{aceglm}}, \code{\link{acenlm}}, \code{\link{paceglm}}, \code{\link{pacenlm}}.
 }
 \examples{
 ## This example involves finding a Bayesian D-optimal design for a 

@@ -37,7 +37,7 @@ For a deterministic approximation (\code{deterministic = TRUE}), it should retur
   \item{start.d}{
 For \code{ace}, \code{acephase1} and \code{acephase2}, an \code{n} by \code{k} matrix specifying the initial design for the ACE algorithm.
 
-For \code{pace}, a list with each element, an \code{n} by \code{k} matrix specifying the initial design for each repetition of the ACE algorithm.
+For \code{pace}, a list with each element being an \code{n} by \code{k} matrix specifying the initial design for each repetition of the ACE algorithm.
 }
   \item{B}{
 An argument for controlling the approximation to the expected utility.
@@ -223,7 +223,7 @@ Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Ad
 }
 
 \note{
-For more detail on the \code{R} implementation of the utility function used in the \bold{Examples} section, see \code{\link{utilcomp18bad}}.
+For more details on the \code{R} implementation of the utility function used in the \bold{Examples} section, see \code{\link{utilcomp18bad}}.
 }
 
 \examples{
