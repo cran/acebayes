@@ -163,8 +163,8 @@ dimnames = list(as.character(1:n),c("x1", "x2", "x3", "x4")))
 ex$utility(d = start.d, B = 10)
 ## Evaluate resulting approximate utility. Should get:
 
-## [1] -14.01218 -18.53715 -20.78817 -24.02731 -14.89368 -14.25400 -17.38152
-## [8] -17.70984 -14.15254 -21.40505
+#[1] -13.98143 -17.07772 -19.88988 -22.40720 -15.27411 -15.02717 -16.17253 -18.66600 -13.75118
+#[10] -21.83820
 
 ## 2. This example uses utilitynlm to generate the psuedo-Bayesian A-optimality expected utility
 ## function using a quadrature approximation

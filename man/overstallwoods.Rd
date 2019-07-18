@@ -272,7 +272,7 @@ u0[1:5]
 
 mean(u)
 mean(u0)
-## Caluclate expected Bayesian D-optimal utility.
+## Calculate expected Bayesian D-optimal utility.
 
 d<-matrix(runif(2), ncol = 1)
 ## Generate two beta parameters.
@@ -297,7 +297,7 @@ u<-utillrbad(d = d, B = 20000)
 
 u[1:5]
 ## Look at first 5 elements.
-#[1] -11.426457  -5.925467  -9.238526  -9.392765  -7.689553
+#[1] -11.630683  -5.748912  -9.554413 -10.150132  -7.940938
 
 d0<-optdeslrbad(16)
 u0<-utillrbad(d = d0, B = 20000)
@@ -311,13 +311,13 @@ u0[1:5]
 mean(u)
 mean(u0)
 ## Calculate expected Bayesian D-optimal utility.
-#[1] -9.349215
+#[1] -9.38253
 #[1] -2.992012
 
 ######## Beetle mortality experiment #########################
 
 set.seed(1)
-## Set seed for repoducibility
+## Set seed for reproducibility
 
 d<-optimumLHS(n = 10, k = 1)*2-1
 ## Generate a design of 10 doses with elements in [-1, 1]

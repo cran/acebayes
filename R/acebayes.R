@@ -1576,6 +1576,16 @@ aceglm <- function (formula, start.d, family, prior, B, criterion = c("D", "A", 
                      method = c("quadrature", "MC"), Q = 20, N1 = 20, N2 = 100, lower = -1, upper = 1, 
                      progress = FALSE, limits = NULL) 
 {
+	
+# if (is.character(family)) 
+#         family <- get(family, mode = "function", envir = parent.frame())
+#     if (is.function(family)) 
+#         family <- family()
+#     if (is.null(family$family)) {
+#         print(family)
+#         stop("'family' not recognized")
+#     }	
+	
   criterion <- match.arg(criterion)
   if(length(method) > 1) {
     method = switch(EXPR=criterion,
@@ -1658,7 +1668,9 @@ if(x$glm==TRUE){
   cat("Generalised Linear Model \n")
   cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")
   cat("Formula: "); print(x$formula)
-  print(x$family())
+  if(is.function(x$family)){
+  print(x$family())} else{
+  print(x$family)}	
   cat("Method: ", x$method, "\n\n")
   if(identical(x$method, "MC")) cat("B: ", x$B, "\n\n")
   else {
@@ -2538,6 +2550,15 @@ paceglm<-function(formula, start.d, family, prior, B, criterion = c("D", "A", "E
 	limits = NULL, mc.cores = 1, n.assess = 20){
 
 ptm<-proc.time()[3]	
+# 
+# if (is.character(family)) 
+#         family <- get(family, mode = "function", envir = parent.frame())
+#     if (is.function(family)) 
+#         family <- family()
+#     if (is.null(family$family)) {
+#         print(family)
+#         stop("'family' not recognized")
+#     }
 	
 C<-length(start.d)
 
@@ -2788,7 +2809,9 @@ if(x$glm==TRUE){
   cat("Generalised Linear Model \n")
   cat("Criterion = Bayesian ",x$criterion,"-optimality \n",sep="")
   cat("Formula: "); print(x$formula)
-  print(x$family())
+   if(is.function(x$family)){
+  print(x$family())} else{
+  print(x$family)}	
   cat("Method: ", x$method, "\n\n")
   if(identical(x$method, "MC")) cat("B: ", x$B, "\n\n")
   else {
