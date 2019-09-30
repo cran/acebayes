@@ -26,8 +26,8 @@ points.
 \tabular{ll}{
 Package: \tab acebayes\cr
 Type: \tab Package\cr
-Version: \tab 1.7\cr
-Date: \tab 2019-07-16\cr
+Version: \tab 1.8\cr
+Date: \tab 2019-09-30\cr
 License: \tab GPL-2\cr
 }
 The most important functions are as follows.
@@ -56,7 +56,7 @@ The functions \code{\link{aceglm}} and \code{\link{acenlm}} are user-friendly wr
 For more details on the underpinning methodology, see Overstall & Woods (2017).
 }
 \author{
-Antony M. Overstall, David C. Woods & Maria Adamou
+Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods, Maria Adamou & Damianos Michaelides
 
 Maintainer: Antony. M.Overstall \email{A.M.Overstall@soton.ac.uk}
 }

@@ -127,7 +127,7 @@ approximate coordinate exchange. \emph{Technometrics}, \bold{59}, 458-470.
 }
 
 \author{
-Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Adamou
+Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods, Maria Adamou & Damianos Michaelides
 }
 
 \seealso{

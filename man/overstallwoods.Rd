@@ -237,7 +237,7 @@ With Several Variables and Model Uncertainty. \emph{Technometrics}, \bold{48}, 2
 }
 
 \author{
-Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Adamou
+Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods, Maria Adamou & Damianos Michaelides
 }
 
 \seealso{
@@ -325,7 +325,7 @@ d<-optimumLHS(n = 10, k = 1)*2-1
 utilbeetle(d = d, B = 5)
 ## Calculate the utility function for a sample of size 5.
 
-#-4.085626e-06 -1.209499e-06 -1.214244e-05 -6.243750e-06 -3.083291e-05
+#-4.720491e-06 -1.198955e-05 -1.681380e-05 -3.123498e-06 -1.412722e-05
 
 d0<-optdesbeetle(10)
 d0

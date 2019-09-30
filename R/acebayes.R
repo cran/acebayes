@@ -2217,231 +2217,436 @@ des}
 
 ################# Quadrature Functions
 
+# A simplex function to numerically approximate the inner integral. 
+simplex <- function(p) {
+  # cretate matrix v
+  v <- matrix(0, nrow = p+1, ncol = p)
+  #extended simplex method begins by creating a p+1 vertex-centered simplex in Rp. 
+  for (i in 1:(p+1)) {
+    for (j in 1:p) {
+      if (j<i) { v[i,j] = (-1) * sqrt( (p+1) / ( p * (p-j+2) * (p-j+1) ) ) }
+      if (j==i) { v[i,j] = sqrt( (p+1) * (p-i+1) / ( p * (p-i+2)  ) ) }
+      if (j>i) { v[i,j] = 0 }
+    }
+  }
+  # create midpoints of the simplex vertices. 
+  midpoints <- matrix(ncol=p, nrow=p*(p+1)/2)
+  k<-1
+  for (i in 1:p) {
+    for (j in (i+1):(p+1)) {
+      midpoints[k,] = 0.5 * (v[i,] + v[j,])
+      k<-k+1
+    }
+  }
+  proj.pts <- midpoints # gets correct dimensions
+  for (k in 1:(p*(p+1)/2)) 
+  {
+    norm <- (sum(midpoints[k,]^2))^0.5
+    proj.pts[k,] <- midpoints[k,]/norm
+    if(identical(proj.pts[k, ], NaN)) proj.pts[k,] <- 0
+  }
+  
+  # Form extended simplex by adding in negative images of these points
+  simplex <- rbind(v, -v, proj.pts, -proj.pts)
+  
+  # simplex weights
+  w.s <- rep(0,(p+1)*(p+2))
+  w.s[1:(2*(p+1))] <- p*(7-p) / (2*((p+1)^2) * (p+2))
+  w.s[-(1:(2*(p+1)))] <- 2*((p-1)^2) / (p*((p+1)^2) * (p+2))
+  return(list(simplex=simplex,w.s=w.s))
+}
+# sm1 <- simplex(p=3)
 
+# A function which finds the roots of gaussian laugerre and return them as a vector. 
+# Numerical values of abscissas a. 
+# Code found at Press et al 1992 as C++ code.
+gaulag<-function(p, Nr, its, precision) { 
+  alpha <- p/2 
+  x <- c(0)
+  for(i in 1:Nr){ 
+    if(i==1) { z <- (1 + alpha) * (3 + 0.92*alpha) / (1 + 2.4*Nr + 1.8*alpha) } 
+    if(i==2) { z <- z + (15 + 6.25*alpha) / (1 + 2.4*Nr + 1.8*alpha) } 
+    if(i>2) { ai <- i-2 } 
+    if(i>2)  { z <- z + ((1 + 2.55*ai) / (1.9*ai) + 1.26*ai*alpha / (1+3.5*ai)) * (z - x[i-2]) / (1 + 0.3*alpha) } 
+    
+    for(its in 1:its){ 
+      p1 <- 1
+      p2 <- 0 
+      for(j in 1:Nr){ 
+        p3 <- p2
+        p2 <- p1 
+        p1 <- ( ( 2*j - 1 + alpha - z ) * p2 - ( j -1 + alpha ) * p3 ) / (j)
+      } 
+      pp <- ( Nr*p1 - (Nr +  alpha)*p2 ) / z 
+      z1 <- z 
+      z <- z1 - p1 / pp 
+      if(abs(z-z1) < precision) break 
+      # if(its >= its) warning("too many iterations in gaussian laguerre")
+    } 
+    x[i] <- z 
+  } 
+  x<-c(0,x) 
+  return(x) 
+} 
+# a <-gaulag(p=3, Nr=10, its=1e+06, precision=1e-06)
+
+# A function for the associated Laguerre polynomials.
+laguerre <- function( a, n, s ) {
+  laguerre.matrix <- matrix(0, nrow = length(a), ncol = (n+1))
+  for (i in 0:n) {
+    laguerre.matrix[,i+1] <- (-1)^i * exp( lfactorial(n) + lchoose(n+s, n-i) + log(a^i) - lfactorial(i) )
+  }
+  laguerre.vector <- rowSums(laguerre.matrix)
+  return(laguerre.vector)
+}
+
+# A function for the weights.
+# Numerical values for the coefficients H.
+# Formula found at Cassity 1965.
+cassity.weight <- function(a,p) {
+  s <- (p/2) - 1
+  n <- length(a)
+  constant <- exp( lgamma(n) + lgamma(n+s) - log(n+s) )
+  weight <- constant/(laguerre(a,n-1,s)^2) 
+  weight[1] <- weight[1] * (1+s)
+  
+  return(weight)
+}
+# w <- laguerre(p=3, a=a)
+# l <- cassity.weight(a=a, p=3)
+
+# normal prior quadrature
+library(randtoolbox)
 RSquadrature <- function(p, mu, Sigma, Nr, Nq) {
-
+  
   if(!identical(length(mu), as.integer(p))) stop("length(mu) must equal p")
   if(!identical(length(Sigma), as.integer(p * p))) stop("Sigma must have size p * p")
-	#generate orthogonal matrices
-	#P<- p+1
-	P<-p
-	Q <- array(dim=c(Nq,P,P))
-	big.ran.mat <- matrix(halton(P * P * Nq, dim = 1, normal = T), ncol = P)
-	for (i in 1:Nq) {
-#	  ran.mat<-matrix(rnorm(P*P),ncol=P)
-	  ran.mat <- big.ran.mat[(1 + (i - 1) * P):(P + (i - 1) * P), ]
-		qr <- qr(ran.mat)
-		Q[i,,]<-qr.Q(qr)
-	}
-
-
-	# compute L, Cholesky root of Sigma
-	# L <- sqrt(Sigma)
+  
+  Q <- array(dim=c(p, p, Nq))
+  big.ran.mat <- matrix(halton(p * p * Nq, dim = 1, normal = T), ncol = p)
+  for (i in 1:Nq) {
+    ran.mat <- big.ran.mat[(1 + (i - 1) * p):(p + (i - 1) * p), ]
+    qr <- qr(ran.mat)
+    Q[,,i]<-qr.Q(qr)
+  }
+  
+  # cholesky root of Sigma
   L <- t(chol(Sigma))
-    
-	# compute simplex + weights
-	simp <-simplex(P)
-	simplex <- simp$simplex
-	w.s <- simp$w.s
-
-	#print(simplex)
-	#print(w.s)
-
-	# compute radial abscissae, store in vector r
-	
-	r <- gaulag(p=P,Nr=Nr,its=1e6,precision=1e-6)
-	w.R <- cassity.weight(r,P)/gamma((P)/2)
-	r <- 2*r
-	#print(r)
-
-	#create arrays to store abscissae and weights, and put values for the zero abscissa
-	a<- matrix(mu,ncol=P)
-	#a[1,P] <<- exp(mu[P])
-
-	w.a <- NULL
-	w.a <- w.R[1]
-
-	# calculate remaining abscissae and weights
-	for (i in 1:Nr) {
-			for (j in 1:((P+1)*(P+2))) {
-				for (k in 1:Nq) {
-					# compute the abscissa in beta-log(sigma^2) space
-					theta <- mu + (r[i+1]^0.5)*L%*%Q[k,,]%*%simplex[j,]
-				
-					# exponentiate log(sigma^2) to put on beta-sigma^2 scale
-					#ONLY FOR GLMM case
-					#theta[P] <- exp(theta[P])
-					a <- rbind(a,t(theta))
-					w.a <- c(w.a,w.R[i+1]*w.s[j]/Nq)
-				}
-			}
-		}
-	return(list(a = a, w = w.a))
+  # transpose because we want the lower triangular cholensky root. (entries above diagonal to be zero)
+  
+  # Spherical inner integral: simplex and simplex weights 
+  simp <- simplex(p)
+  simplex <- simp$simplex
+  w.s <- simp$w.s
+  
+  # Radial outer integral
+  # find abscissas
+  r <- gaulag(p=p, Nr=Nr, its=1e+06, precision=1e-06)
+  # find coefficients/weights
+  w.R <- exp( log(cassity.weight(p=p, a=r)) - lgamma((p)/2) )
+  r <- 2*r
+  
+  #create arrays to store abscissas and weights, and put values for the zero abscissas
+  a <- matrix(nrow=( 1+(p+1)*(p+2)*Nr*Nq) , ncol=p)
+  a[1,] <- mu
+  w.a <- rep(0, 1+(p+1)*(p+2)*Nr*Nq)
+  w.a[1] <- w.R[1]
+  l <- 2
+  
+  # calculate remaining abscissas and weights
+  for (i in 1:Nr) {
+    for (j in 1:((p+1)*(p+2))) {
+      for (k in 1:Nq) {
+        # compute the abscissa in beta-log(Sigma^2) space
+        a[l,] <- mu + (r[i+1]^0.5)*L%*%Q[,,k]%*%simplex[j,]
+        w.a[l] <- w.R[i+1]*w.s[j]/Nq
+        l <- l+1 
+      }
+    }
+  }
+  return(list(a = a, w = w.a))
 }
 
-
+# uniform prior quadrature
 RSquadrature.uniform <- function(p, limits, Nr, Nq) {
-
-	#generate orthogonal matrices
-	#P<- p+1
-	P<-p
-	Q <- array(dim=c(Nq,P,P))
-	big.ran.mat <- matrix(halton(P * P * Nq, dim = 1, normal = T), ncol = P)
-	for (i in 1:Nq) {
-#		ran.mat<-matrix(rnorm(P*P),ncol=P)
-    ran.mat <- big.ran.mat[(1 + (i - 1) * P):(P + (i - 1) * P), ]
-	  qr <- qr(ran.mat)
-		Q[i,,]<-qr.Q(qr)
-	}
-
-
-	
-	# compute simplex + weights
-	simp <-simplex(P)
-	simplex <- simp$simplex
-	w.s <- simp$w.s
-
-	#print(simplex)
-	#print(w.s)
-
-	# compute radial abscissae, store in vector r
-	
-	r <- gaulag(p=P,Nr=Nr,its=1e6,precision=1e-6)
-	w.R <- cassity.weight(r,P)/gamma((P)/2)
-	r <- 2*r
-	#print(r)
-
-	d1<-limits[,2]-limits[,1]
-	d2<-limits[,1]
-
-	#create arrays to store abscissae and weights, and put values for the zero abscissa
-	a <- matrix(d1*pnorm(0)+d2,ncol=P)
-	#a[1,P] <<- exp(mu[P])
-
-	w.a <- NULL
-	w.a <- w.R[1]
-
-	# calculate remaining abscissae and weights
-	for (i in 1:Nr) {
-			for (j in 1:((P+1)*(P+2))) {
-				for (k in 1:Nq) {
-					# compute the abscissa in beta-log(sigma^2) space
-					theta <- d1*pnorm((r[i+1]^0.5)*Q[k,,]%*%simplex[j,])+d2
-				
-					# exponentiate log(sigma^2) to put on beta-sigma^2 scale
-					#ONLY FOR GLMM case
-					#theta[P] <- exp(theta[P])
-					a <- rbind(a,t(theta))
-					w.a <- c(w.a,w.R[i+1]*w.s[j]/Nq)
-				}
-			}
-		}
-	return(list(a = a, w = w.a))
+  
+  #generate orthogonal matrices
+  Q <- array(dim=c(p, p, Nq))
+  big.ran.mat <- matrix(halton(p * p * Nq, dim = 1, normal = T), ncol = p)
+  for (i in 1:Nq) {
+    #		ran.mat<-matrix(rnorm(P*P),ncol=P)
+    ran.mat <- big.ran.mat[(1 + (i - 1) * p):(p + (i - 1) * p), ]
+    qr <- qr(ran.mat)
+    Q[,,i]<-qr.Q(qr)
+  }
+  
+  
+  # compute simplex + weights
+  simp <- simplex(p)
+  simplex <- simp$simplex
+  w.s <- simp$w.s
+  
+  #print(simplex)
+  #print(w.s)
+   
+  # compute radial abscissae, store in vector r
+  
+  r <- gaulag(p=p, Nr=Nr, its=1e6, precision=1e-6)
+  w.R <- exp( log(cassity.weight(p=p, a=r)) - lgamma((p)/2) )
+  r <- 2*r
+  #print(r)
+  
+  d1<-limits[,2]-limits[,1]
+  d2<-limits[,1]
+  #create arrays to store abscissae and weights, and put values for the zero abscissa
+  a <- matrix(nrow=( 1+(p+1)*(p+2)*Nr*Nq), ncol=p)
+  a[1,] <-d1*pnorm(0)+d2  
+  
+  w.a <- rep(0, 1+(p+1)*(p+2)*Nr*Nq)
+  w.a[1] <- w.R[1]
+  
+  l <- 2
+  
+  # calculate remaining abscissae and weights
+  for (i in 1:Nr) {
+    for (j in 1:((p+1)*(p+2))) {
+      for (k in 1:Nq) {
+        # compute the abscissa in beta-log(Sigma^2) space
+        a[l,] <- d1*pnorm((r[i+1]^0.5)*Q[,,k]%*%simplex[j,])+d2
+        w.a[l] <- w.R[i+1]*w.s[j]/Nq
+        l <- l+1
+        # exponentiate log(Sigma^2) to put on beta-Sigma^2 scale
+        #ONLY FOR GLMM case
+      }
+    }
+  }
+  return(list(a = a, w = w.a))
 }
 
-
-
-
-simplex <- function(p) {
-	V <- matrix(ncol=p,nrow=p+1)
-	for (i in 1:(p+1))
-	{	
-		for (j in 1:p) {
-			if (j<i) { V[i,j] = -((p+1)/(p*(p-j+2)*(p-j+1)))^0.5 }
-			if (j==i) { V[i,j] = ((p+1)*(p-i+1)/(p*(p-i+2)))^0.5}
-			if (j>i) { V[i,j] = 0 }
-		}
-	}
-
-	# Form midpoints and project onto the sphere
-
-	midpoints <- matrix(ncol=p,nrow=p*(p+1)/2)
-	k<-1
-	for (i in 1:p) {
-		for (j in (i+1):(p+1)) {
-			midpoints[k,] = 0.5*(V[i,]+V[j,])
-			k<-k+1
-		}
-	}
-	proj.pts <- midpoints # gets correct dimensions
-	for (k in 1:(p*(p+1)/2)) 
-	{
-		norm <- (sum(midpoints[k,]^2))^0.5
-		proj.pts[k,] <- midpoints[k,]/norm
-		if(identical(proj.pts[k, ], NaN)) proj.pts[k,] <- 0
-	}
-
-	# Form extended simplex by adding in negative images of these points
-	simplex <- rbind(V,-V,proj.pts,-proj.pts)
-
-	# Compute the simplex weights
-	w.s <- vector(length=(p+1)*(p+2))
-	w.s[1:(2*(p+1))] <- p*(7-p)/(2*(p+1)^2*(p+2))
-	w.s[-(1:(2*(p+1)))] <- 2*((p-1)^2)/(p*(p+1)^2*(p+2))
-	return(list(simplex=simplex,w.s=w.s))
-}
-
-# John's Laguerre poly root finder
-# translated from the C code in Press et al.
-# I have checked this against the latter, TW 20.1.2010.
-
-gaulag<-function(p, Nr, its,precision) 
-{ 
-alpha<-p/2 
-a<-vector() 
-w<-vector() 
-for(i in 1:Nr){ 
-if(i==1){z<-(1+alpha)*(3+0.92*alpha)/(1+2.4*Nr+1.8*alpha)} 
-if(i==2){z<-z+(15+6.25*alpha)/(1+2.4*Nr+1.8*alpha)} 
-if(i>2){ai<-i-2} 
-if(i>2){z<-z+((1+2.55*ai)/(1.9*ai)+1.26*ai*alpha/(1+3.5*ai))*(z-a[i-2])/(1+0.3*alpha)} 
- 
-for(its in 1:its){ 
-p1<-1;p2<-0 
-for(j in 1:Nr){ 
-p3<-p2;p2<-p1 
-p1<-((2*j-1+alpha-z)*p2-(j-1+alpha)*p3)/j} 
- 
-pp<-(Nr*p1-(Nr+alpha)*p2)/z 
-z1<-z 
-z<-z1-p1/pp 
-if(abs(z-z1)< precision) break 
-} 
-a[i]<-z 
-} 
-a<-c(0,a) 
-return(a) 
-} 
-#Evaluates the laguerre polynomial with parameters n and s at the value a.  
-laguerre<-function(a,n,s) 
-{ 
-laguerre.matrix<-matrix(nrow=length(a), ncol=n+1) 
-laguerre.vector<-vector(length=length(a)) 
-#Loops up the recurrence relation 
-for(j in 1:length(a)){ 
-for(i in 0:n){ 
-laguerre.matrix[j,i+1]<-factorial(n)*choose(n+s, n-i)*(-a[j])^i/factorial(i) 
-
-
-} 
-laguerre.vector[j]<-sum(laguerre.matrix[j,]) 
-} 
-return(laguerre.vector) 
-} 
- 
-#Reproduces the weights formula given by Cassity(1965). But takes 
-#the number of parameters as input to make it easier for the function user. 
-cassity.weight<-function(a,p) 
-{ 
-n<-length(a);s<-p/2-1 
-constant<-gamma(n)*gamma(n+s)/(n+s) 
-weight<-constant/(laguerre(a,n-1,s)^2) 
-weight[1]<-weight[1]*(1+s)#as described by cassity et al 'incorporate factor 1+s 
-					# TW: Yeah, I find that sentence a bit confusing. 
-					# but multiplying by 1+s here gives us the right answers 
-					# (checking against the tables...)
-return(weight) 
-}
+# RSquadrature <- function(p, mu, Sigma, Nr, Nq) {
+# 
+#   if(!identical(length(mu), as.integer(p))) stop("length(mu) must equal p")
+#   if(!identical(length(Sigma), as.integer(p * p))) stop("Sigma must have size p * p")
+# 	#generate orthogonal matrices
+# 	#P<- p+1
+# 	P<-p
+# 	Q <- array(dim=c(Nq,P,P))
+# 	big.ran.mat <- matrix(halton(P * P * Nq, dim = 1, normal = T), ncol = P)
+# 	for (i in 1:Nq) {
+# #	  ran.mat<-matrix(rnorm(P*P),ncol=P)
+# 	  ran.mat <- big.ran.mat[(1 + (i - 1) * P):(P + (i - 1) * P), ]
+# 		qr <- qr(ran.mat)
+# 		Q[i,,]<-qr.Q(qr)
+# 	}
+# 
+# 
+# 	# compute L, Cholesky root of Sigma
+# 	# L <- sqrt(Sigma)
+#   L <- t(chol(Sigma))
+# 
+# 	# compute simplex + weights
+# 	simp <-simplex(P)
+# 	simplex <- simp$simplex
+# 	w.s <- simp$w.s
+# 
+# 	#print(simplex)
+# 	#print(w.s)
+# 
+# 	# compute radial abscissae, store in vector r
+# 
+# 	r <- gaulag(p=P,Nr=Nr,its=1e6,precision=1e-6)
+# 	w.R <- cassity.weight(r,P)/gamma((P)/2)
+# 	r <- 2*r
+# 	#print(r)
+# 
+# 	#create arrays to store abscissae and weights, and put values for the zero abscissa
+# 	a<- matrix(mu,ncol=P)
+# 	#a[1,P] <<- exp(mu[P])
+# 
+# 	w.a <- NULL
+# 	w.a <- w.R[1]
+# 
+# 	# calculate remaining abscissae and weights
+# 	for (i in 1:Nr) {
+# 			for (j in 1:((P+1)*(P+2))) {
+# 				for (k in 1:Nq) {
+# 					# compute the abscissa in beta-log(sigma^2) space
+# 					theta <- mu + (r[i+1]^0.5)*L%*%Q[k,,]%*%simplex[j,]
+# 
+# 					# exponentiate log(sigma^2) to put on beta-sigma^2 scale
+# 					#ONLY FOR GLMM case
+# 					#theta[P] <- exp(theta[P])
+# 					a <- rbind(a,t(theta))
+# 					w.a <- c(w.a,w.R[i+1]*w.s[j]/Nq)
+# 				}
+# 			}
+# 		}
+# 	return(list(a = a, w = w.a))
+# }
+# 
+# 
+# RSquadrature.uniform <- function(p, limits, Nr, Nq) {
+# 
+# 	#generate orthogonal matrices
+# 	#P<- p+1
+# 	P<-p
+# 	Q <- array(dim=c(Nq,P,P))
+# 	big.ran.mat <- matrix(halton(P * P * Nq, dim = 1, normal = T), ncol = P)
+# 	for (i in 1:Nq) {
+# #		ran.mat<-matrix(rnorm(P*P),ncol=P)
+#     ran.mat <- big.ran.mat[(1 + (i - 1) * P):(P + (i - 1) * P), ]
+# 	  qr <- qr(ran.mat)
+# 		Q[i,,]<-qr.Q(qr)
+# 	}
+# 
+# 
+# 
+# 	# compute simplex + weights
+# 	simp <-simplex(P)
+# 	simplex <- simp$simplex
+# 	w.s <- simp$w.s
+# 
+# 	#print(simplex)
+# 	#print(w.s)
+# 
+# 	# compute radial abscissae, store in vector r
+# 
+# 	r <- gaulag(p=P,Nr=Nr,its=1e6,precision=1e-6)
+# 	w.R <- cassity.weight(r,P)/gamma((P)/2)
+# 	r <- 2*r
+# 	#print(r)
+# 
+# 	d1<-limits[,2]-limits[,1]
+# 	d2<-limits[,1]
+# 
+# 	#create arrays to store abscissae and weights, and put values for the zero abscissa
+# 	a <- matrix(d1*pnorm(0)+d2,ncol=P)
+# 	#a[1,P] <<- exp(mu[P])
+# 
+# 	w.a <- NULL
+# 	w.a <- w.R[1]
+# 
+# 	# calculate remaining abscissae and weights
+# 	for (i in 1:Nr) {
+# 			for (j in 1:((P+1)*(P+2))) {
+# 				for (k in 1:Nq) {
+# 					# compute the abscissa in beta-log(sigma^2) space
+# 					theta <- d1*pnorm((r[i+1]^0.5)*Q[k,,]%*%simplex[j,])+d2
+# 
+# 					# exponentiate log(sigma^2) to put on beta-sigma^2 scale
+# 					#ONLY FOR GLMM case
+# 					#theta[P] <- exp(theta[P])
+# 					a <- rbind(a,t(theta))
+# 					w.a <- c(w.a,w.R[i+1]*w.s[j]/Nq)
+# 				}
+# 			}
+# 		}
+# 	return(list(a = a, w = w.a))
+# }
+# 
+# 
+# 
+# 
+# simplex <- function(p) {
+# 	V <- matrix(ncol=p,nrow=p+1)
+# 	for (i in 1:(p+1))
+# 	{
+# 		for (j in 1:p) {
+# 			if (j<i) { V[i,j] = -((p+1)/(p*(p-j+2)*(p-j+1)))^0.5 }
+# 			if (j==i) { V[i,j] = ((p+1)*(p-i+1)/(p*(p-i+2)))^0.5}
+# 			if (j>i) { V[i,j] = 0 }
+# 		}
+# 	}
+# 
+# 	# Form midpoints and project onto the sphere
+# 
+# 	midpoints <- matrix(ncol=p,nrow=p*(p+1)/2)
+# 	k<-1
+# 	for (i in 1:p) {
+# 		for (j in (i+1):(p+1)) {
+# 			midpoints[k,] = 0.5*(V[i,]+V[j,])
+# 			k<-k+1
+# 		}
+# 	}
+# 	proj.pts <- midpoints # gets correct dimensions
+# 	for (k in 1:(p*(p+1)/2))
+# 	{
+# 		norm <- (sum(midpoints[k,]^2))^0.5
+# 		proj.pts[k,] <- midpoints[k,]/norm
+# 		if(identical(proj.pts[k, ], NaN)) proj.pts[k,] <- 0
+# 	}
+# 
+# 	# Form extended simplex by adding in negative images of these points
+# 	simplex <- rbind(V,-V,proj.pts,-proj.pts)
+# 
+# 	# Compute the simplex weights
+# 	w.s <- vector(length=(p+1)*(p+2))
+# 	w.s[1:(2*(p+1))] <- p*(7-p)/(2*(p+1)^2*(p+2))
+# 	w.s[-(1:(2*(p+1)))] <- 2*((p-1)^2)/(p*(p+1)^2*(p+2))
+# 	return(list(simplex=simplex,w.s=w.s))
+# }
+# 
+# # John's Laguerre poly root finder
+# # translated from the C code in Press et al.
+# # I have checked this against the latter, TW 20.1.2010.
+# 
+# gaulag<-function(p, Nr, its,precision)
+# {
+# alpha<-p/2
+# a<-vector()
+# w<-vector()
+# for(i in 1:Nr){
+# if(i==1){z<-(1+alpha)*(3+0.92*alpha)/(1+2.4*Nr+1.8*alpha)}
+# if(i==2){z<-z+(15+6.25*alpha)/(1+2.4*Nr+1.8*alpha)}
+# if(i>2){ai<-i-2}
+# if(i>2){z<-z+((1+2.55*ai)/(1.9*ai)+1.26*ai*alpha/(1+3.5*ai))*(z-a[i-2])/(1+0.3*alpha)}
+# 
+# for(its in 1:its){
+# p1<-1;p2<-0
+# for(j in 1:Nr){
+# p3<-p2;p2<-p1
+# p1<-((2*j-1+alpha-z)*p2-(j-1+alpha)*p3)/j}
+# 
+# pp<-(Nr*p1-(Nr+alpha)*p2)/z
+# z1<-z
+# z<-z1-p1/pp
+# if(abs(z-z1)< precision) break
+# }
+# a[i]<-z
+# }
+# a<-c(0,a)
+# return(a)
+# }
+# #Evaluates the laguerre polynomial with parameters n and s at the value a.
+# laguerre<-function(a,n,s)
+# {
+# laguerre.matrix<-matrix(nrow=length(a), ncol=n+1)
+# laguerre.vector<-vector(length=length(a))
+# #Loops up the recurrence relation
+# for(j in 1:length(a)){
+# for(i in 0:n){
+# laguerre.matrix[j,i+1]<-factorial(n)*choose(n+s, n-i)*(-a[j])^i/factorial(i)
+# 
+# 
+# }
+# laguerre.vector[j]<-sum(laguerre.matrix[j,])
+# }
+# return(laguerre.vector)
+# }
+# 
+# #Reproduces the weights formula given by Cassity(1965). But takes
+# #the number of parameters as input to make it easier for the function user.
+# cassity.weight<-function(a,p)
+# {
+# n<-length(a);s<-p/2-1
+# constant<-gamma(n)*gamma(n+s)/(n+s)
+# weight<-constant/(laguerre(a,n-1,s)^2)
+# weight[1]<-weight[1]*(1+s)#as described by cassity et al 'incorporate factor 1+s
+# 					# TW: Yeah, I find that sentence a bit confusing.
+# 					# but multiplying by 1+s here gives us the right answers
+# 					# (checking against the tables...)
+# return(weight)
+# }
 
 ##### pace ######################
 

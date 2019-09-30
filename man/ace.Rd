@@ -219,7 +219,7 @@ Overstall, A.M., McGree, J.M. & Drovandi, C.C. (2018). An approach for finding f
 }
 
 \author{
-Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Adamou
+Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods, Maria Adamou & Damianos Michaelides
 }
 
 \note{

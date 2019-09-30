@@ -64,7 +64,7 @@ The argument \code{d2}.
 }
 
 \author{
-Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods & Maria Adamou
+Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods, Maria Adamou & Damianos Michaelides
 }
 
 \seealso{
