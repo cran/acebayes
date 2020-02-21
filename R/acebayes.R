@@ -1097,6 +1097,8 @@ if(!is.function(family)){
 	stuff<-family()}
 mu<-stuff$linkinv(eta)
 w<-(stuff$mu.eta(eta)^2)/stuff$variance(mu)
+if(stuff$family=="gaussian" & stuff$link=="identity"){    ## To fix error with Gaussian("identity")
+w<-matrix(1,nrow=nrow(mu),ncol=ncol(mu))}	
 
 if(criterion=="D"){
 eval<-.Call("Dcpp", x, w, PACKAGE = "acebayes")}

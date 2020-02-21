@@ -1,12 +1,12 @@
-103e6bd159e6d0913f318f75b67edf59 *DESCRIPTION
+ebe8d25eea2e38df80fee968118c6b0d *DESCRIPTION
 1f3d20f7a979a2624f70f1f131b27ca8 *NAMESPACE
-a0c09dd2f562a8124a503f73f1be70e2 *R/acebayes.R
-b1a50e5299eb00d39682db61616276f4 *R/sysdata.rda
-9ffa89a911478d9ec2aa3a81d5e3adaf *build/vignette.rds
+f7517f688057e0e26988c97498c66fab *R/acebayes.R
+9e01f7093c86305e0e1448169acb62a6 *R/sysdata.rda
+8cb6ed160f914b4b0de048040499b66c *build/vignette.rds
 af5d19b8f3ecd5d69839dd218162a924 *inst/doc/acebayes.pdf
 29c17b2c90236aa0b33246b5522c4ec1 *inst/doc/acebayes.pdf.asis
 34dd1820a0e202775c97748da210b087 *man/ace.Rd
-c88ec9f4028fff60aa6d2c4882abcacc *man/acebayes-package.Rd
+1d8f143baf411951aa61633145611c1e *man/acebayes-package.Rd
 b5c1aa5498033373d04984a936feeb62 *man/aceglm.Rd
 57c35b93d118ca2494334598f2154843 *man/acenlm.Rd
 5582bc57d76307782b0edc74bae6b391 *man/aceobjects.Rd
