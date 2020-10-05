@@ -1,12 +1,10 @@
-ebe8d25eea2e38df80fee968118c6b0d *DESCRIPTION
+cd9d0ad3f19b8beef4ce8444326bfa43 *DESCRIPTION
 1f3d20f7a979a2624f70f1f131b27ca8 *NAMESPACE
 f7517f688057e0e26988c97498c66fab *R/acebayes.R
-9e01f7093c86305e0e1448169acb62a6 *R/sysdata.rda
-8cb6ed160f914b4b0de048040499b66c *build/vignette.rds
-af5d19b8f3ecd5d69839dd218162a924 *inst/doc/acebayes.pdf
-29c17b2c90236aa0b33246b5522c4ec1 *inst/doc/acebayes.pdf.asis
+69763d87bac336e5b517bce002a23fc4 *R/sysdata.rda
+f3290d006621c2389cc1e6bce1a41f7d *inst/CITATION
 34dd1820a0e202775c97748da210b087 *man/ace.Rd
-1d8f143baf411951aa61633145611c1e *man/acebayes-package.Rd
+a72c7b4f6b232a8ebb1914fc79e19f9e *man/acebayes-package.Rd
 b5c1aa5498033373d04984a936feeb62 *man/aceglm.Rd
 57c35b93d118ca2494334598f2154843 *man/acenlm.Rd
 5582bc57d76307782b0edc74bae6b391 *man/aceobjects.Rd
@@ -20,4 +18,3 @@ a7204cd11d9e6c0400d2b30eef59b458 *man/overstallwoods.Rd
 61059660eb073d93e00e8ee054237071 *src/Makevars.win
 f182b4e98bd00c7c73339bbac87a5ce6 *src/acebayes.cpp
 aeaa750edaf7cb8d0acaad03a3d97960 *src/acebayes_init.c
-29c17b2c90236aa0b33246b5522c4ec1 *vignettes/acebayes.pdf.asis

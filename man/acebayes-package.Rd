@@ -21,13 +21,14 @@ process (GP) emulator constructing using a 'small' number of approximate
 evaluations of the expected utility function. In Phase II a point exchange 
 algorithm is used to consolidate clusters of design points into repeated design 
 points.
+
 }
 \details{
 \tabular{ll}{
 Package: \tab acebayes\cr
-Type: \tab Package\cr
-Version: \tab 1.9\cr
-Date: \tab 2020-02-20\cr
+Version: \tab 1.10\cr
+Date: \tab 2020-10-04\cr
+Date: \tab 2017-02-09\cr
 License: \tab GPL-2\cr
 }
 The most important functions are as follows.
@@ -53,7 +54,7 @@ The computational time of \code{\link{ace}} (and \code{\link{pace}}) is highly d
 
 The functions \code{\link{aceglm}} and \code{\link{acenlm}} are user-friendly wrapper functions for \code{\link{ace}} which use the ACE algorithm to find Bayesian optimal experimental designs for generalised linear models and non-linear models, respectively. As special cases, both of these functions can find pseudo-Bayesian optimal designs. The functions \code{\link{paceglm}} and \code{\link{pacenlm}} implement repetitions of the ACE algorithm from different starting designs (as specified by the \code{start.d} argument) for generalised linear models and non-linear models, respectively.
 
-For more details on the underpinning methodology, see Overstall & Woods (2017).
+For more details on the underpinning methodology, see Overstall & Woods (2017), and for more information on the \code{acebayes} package, see Overstall et al (2020).
 }
 \author{
 Antony M. Overstall \email{A.M.Overstall@soton.ac.uk}, David C. Woods, Maria Adamou & Damianos Michaelides
@@ -63,13 +64,13 @@ Maintainer: Antony. M.Overstall \email{A.M.Overstall@soton.ac.uk}
 \references{
 Bates, D. & Eddelbuettel, D. (2013). Fast and Elegant Numerical Linear Algebra Using the 
 RcppEigen Package. \emph{Journal of Statistical Software}, \bold{52(5)}, 1-24. 
-\url{http://www.jstatsoft.org/v52/i05/}
+\url{https://www.jstatsoft.org/v52/i05/}
 
 Chaloner, K. & Verdinelli, I. (1995). Bayesian Experimental Design: A Review. \emph{Statistical
 Science}, \bold{10}, 273-304.
 
 Eddelbuettel, D. & Francois, R. (2011). Rcpp: Seamless R and C++ Integration. 
-\emph{Journal of Statistical Software}, \bold{40(8)}, 1-18. \url{http://www.jstatsoft.org/v40/i08/}
+\emph{Journal of Statistical Software}, \bold{40(8)}, 1-18. \url{https://www.jstatsoft.org/v40/i08/}
 
 Eddelbuettel, D. & Sanderson, C. (2014). RcppArmadillo: Accelerating R with high-performance 
 C++ linear algebra. \emph{Computational Statistics and Data Analysis}, \bold{71}, 1054-1063.
@@ -79,6 +80,8 @@ Optimal Experimental Designs. \emph{Technometrics}, \bold{37}, 60-69.
 
 Overstall, A.M. & Woods, D.C. (2017). Bayesian design of experiments using
 approximate coordinate exchange. \emph{Technometrics}, \bold{59}, 458-470.
+
+Overstall, A.M., Woods, D.C. & Adamou, M. (2020). acebayes: An R Package for Bayesian Optimal Design of Experiments via Approximate Coordinate Exchange. \emph{Journal of Statistical Software}, \bold{95} (13), 1-33 \url{https://www.jstatsoft.org/v095/i13/}
 }
 
 \keyword{package}
